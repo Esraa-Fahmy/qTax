@@ -1,0 +1,193 @@
+const asyncHandler = require("express-async-handler");
+const DriverProfile = require("../models/driverProfileModel");
+const User = require("../models/userModel");
+const ApiError = require("../utils/apiError");
+
+
+
+// 📋 Get all pending driver profiles
+exports.getPendingDrivers = asyncHandler(async (req, res) => {
+  const drivers = await DriverProfile.find({ verificationStatus: "pending" }).populate("user");
+  res.status(200).json({ status: "success", results: drivers.length, data: drivers });
+});
+
+// ✅ Approve driver
+exports.approveDriver = asyncHandler(async (req, res, next) => {
+  const profile = await DriverProfile.findById(req.params.id);
+  if (!profile) return next(new ApiError("Driver not found", 404));
+
+  profile.verificationStatus = "approved";
+  await profile.save();
+
+  await User.findByIdAndUpdate(profile.user, { status: "active" });
+
+  res.status(200).json({ status: "success", message: "Driver approved successfully." });
+});
+
+// ❌ Reject driver
+exports.rejectDriver = asyncHandler(async (req, res, next) => {
+  const { reason } = req.body;
+  const profile = await DriverProfile.findById(req.params.id);
+  if (!profile) return next(new ApiError("Driver not found", 404));
+
+  profile.verificationStatus = "rejected";
+  profile.rejectionReason = reason || "No reason provided";
+  await profile.save();
+
+  await User.findByIdAndUpdate(profile.user, { status: "rejected" });
+
+  res.status(200).json({ status: "success", message: "Driver rejected.", reason });
+});
+
+
+
+exports.getAllUsers = asyncHandler(async (req, res, next) => {
+  const { role, search, page = 1, limit = 10 } = req.query;
+
+  const filter = {};
+  if (role) filter.role = role;
+  if (search) {
+    filter.$or = [
+      { fullName: { $regex: search, $options: "i" } },
+      { phone: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  const skip = (page - 1) * limit;
+
+  const [users, total] = await Promise.all([
+    User.find(filter)
+      .populate("driverProfile")
+      .skip(skip)
+      .limit(limit)
+      .select("-password"),
+    User.countDocuments(filter),
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    results: users.length,
+    total,
+    totalPages: Math.ceil(total / limit),
+    currentPage: +page,
+    data: users,
+  });
+});
+
+
+
+exports.getUserById = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.params.id)
+    .populate("driverProfile")
+    .select("-password");
+
+  if (!user) return next(new ApiError("User not found", 404));
+
+  res.status(200).json({
+    status: "success",
+    data: user,
+  });
+});
+
+
+
+exports.deleteUser = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return next(new ApiError("User not found", 404));
+
+  await user.deleteOne();
+  res.status(200).json({
+    status: "success",
+    message: "User deleted successfully",
+  });
+});
+
+
+
+exports.createDriverByAdmin = asyncHandler(async (req, res, next) => {
+  const { fullName, email, phone } = req.body;
+
+  if (!phone) return next(new ApiError("Phone number is required", 400));
+
+  // تأكدي ما يكونش موجود أصلاً
+  const existing = await User.findOne({ phone });
+  if (existing) return next(new ApiError("This driver already exists", 400));
+
+  const driver = await User.create({
+    fullName,
+    email,
+    phone,
+    role: "driver",
+    isPhoneVerified: true,
+    status: "active",
+  });
+
+  // بروفايل السواق اتوافق عليه تلقائيًا
+  const driverProfile = await DriverProfile.create({
+    user: driver._id,
+    verificationStatus: "approved",
+  });
+
+  driver.driverProfile = driverProfile._id;
+  await driver.save();
+
+  res.status(201).json({
+    status: "success",
+    message: "Driver created successfully and approved automatically.",
+    data: { driver, driverProfile },
+  });
+});
+
+
+
+
+// Approve or reject another admin
+exports.updateAdminStatus = asyncHandler(async (req, res, next) => {
+  const { status } = req.body;
+  const admin = await User.findById(req.params.id);
+
+  if (!admin || admin.role !== "admin")
+    return next(new ApiError("Admin not found", 404));
+
+  if (!["active", "rejected"].includes(status))
+    return next(new ApiError("Invalid status value", 400));
+
+  admin.status = status;
+  await admin.save();
+
+  res.status(200).json({
+    status: "success",
+    message: `Admin ${status === "active" ? "approved" : "rejected"} successfully.`,
+  });
+});
+
+
+exports.createAdminByAdmin = asyncHandler(async (req, res, next) => {
+  const { fullName, email, password } = req.body;
+  if (!email || !password)
+    return next(new ApiError("Email and password are required", 400));
+
+  const existing = await User.findOne({ email });
+  if (existing) return next(new ApiError("Email already exists", 400));
+
+// controllers/adminAuthController.js (registerAdmin)
+const hashedPassword = await bcrypt.hash(password, 12);
+
+const admin = await User.create({
+  fullName,
+  email,
+  phone: null,
+  role: "admin",
+  status: "pending",
+  profileImg: null,
+  password: hashedPassword, // مهم جدًا
+});
+
+
+  res.status(201).json({
+    status: "success",
+    message: "Admin added and activated successfully.",
+    data: newAdmin,
+  });
+});
