@@ -2,7 +2,46 @@ const asyncHandler = require("express-async-handler");
 const DriverProfile = require("../models/driverProfileModel");
 const User = require("../models/userModel");
 const ApiError = require("../utils/apiError");
+const fs = require('fs');
+const path = require("path");
 
+// Helper function لحذف الصور من السيرفر
+const deleteImageFile = (imagePath) => {
+  if (!imagePath) return;
+  
+  // استخرجي اسم الملف من الـ URL
+  const fileName = imagePath.split('/').pop();
+  const filePath = path.join(__dirname, `../uploads/users/${fileName}`);
+  
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+};
+
+const deleteDriverImages = (profile) => {
+  if (!profile) return;
+  
+  const imagePaths = [
+    profile.licenseFront,
+    profile.licenseBack,
+    profile.carRegFront,
+    profile.carRegBack,
+    profile.nationalIdFront,
+    profile.nationalIdBack,
+    ...(profile.carPhotos || [])
+  ];
+  
+  imagePaths.forEach(imgPath => {
+    if (imgPath) {
+      const fileName = imgPath.split('/').pop();
+      const filePath = path.join(__dirname, `../uploads/drivers/${fileName}`);
+      
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
+};
 
 
 // 📋 Get all pending driver profiles
@@ -92,18 +131,6 @@ exports.getUserById = asyncHandler(async (req, res, next) => {
 
 
 
-exports.deleteUser = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.params.id);
-  if (!user) return next(new ApiError("User not found", 404));
-
-  await user.deleteOne();
-  res.status(200).json({
-    status: "success",
-    message: "User deleted successfully",
-  });
-});
-
-
 
 exports.createDriverByAdmin = asyncHandler(async (req, res, next) => {
   const { fullName, email, phone } = req.body;
@@ -189,5 +216,40 @@ const admin = await User.create({
     status: "success",
     message: "Admin added and activated successfully.",
     data: newAdmin,
+  });
+});
+
+
+
+
+exports.deleteUserByAdmin = asyncHandler(async (req, res, next) => {
+  const userId = req.params.id;
+  
+  const user = await User.findById(userId);
+  if (!user) {
+    return next(new ApiError("User not found", 404));
+  }
+
+  // لو سواق، احذفي بروفايله وصوره
+  if (user.role === "driver" && user.driverProfile) {
+    const driverProfile = await DriverProfile.findById(user.driverProfile);
+    
+    if (driverProfile) {
+      deleteDriverImages(driverProfile);
+      await DriverProfile.findByIdAndDelete(user.driverProfile);
+    }
+  }
+
+  // احذفي صورة البروفايل
+  if (user.profileImg) {
+    deleteImageFile(user.profileImg);
+  }
+
+  // احذفي المستخدم
+  await User.findByIdAndDelete(userId);
+
+  res.status(200).json({
+    status: "success",
+    message: "User account deleted successfully by admin",
   });
 });

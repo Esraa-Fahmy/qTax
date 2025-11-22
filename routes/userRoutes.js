@@ -6,6 +6,7 @@ const {
   verifyNewPhone,
   uploadUserImage,
   resizeImage,
+  deleteMyAccount,
 } = require("../controllers/userController");
 
 const { protect } = require("../midlewares/roleMiddleware");
@@ -22,5 +23,7 @@ router.put(
   updateMyProfile
 );
 router.post("/verify-new-phone", verifyNewPhone);
+router.delete("/deleteMe", deleteMyAccount);
+
 
 module.exports = router;

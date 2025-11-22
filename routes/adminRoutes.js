@@ -1,6 +1,6 @@
 const express = require("express");
 const { protect, allowedTo } = require("../midlewares/roleMiddleware");
-const { getPendingDrivers, approveDriver, rejectDriver, getAllUsers, createDriverByAdmin, getUserById, createAdminByAdmin, updateAdminStatus, deleteUser } = require("../controllers/adminController");
+const { getPendingDrivers, approveDriver, rejectDriver, getAllUsers, createDriverByAdmin, getUserById, createAdminByAdmin, updateAdminStatus, deleteUser, deleteUserByAdmin } = require("../controllers/adminController");
 
 const router = express.Router();
 
@@ -14,5 +14,5 @@ router.post("/add-admin", createAdminByAdmin);
 router.put("/approve/:id", approveDriver);
 router.put("/reject/:id", rejectDriver);
 router.get("/users/:id", getUserById);
-router.delete("/delete-user/:id", deleteUser);
+router.delete("/delete-user/:id", deleteUserByAdmin);
 module.exports = router;

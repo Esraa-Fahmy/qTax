@@ -4,7 +4,10 @@ const ApiError = require("../utils/apiError");
 const { v4: uuidv4 } = require('uuid');
 const sharp = require('sharp');
 const fs = require('fs');
+const DriverProfile = require("../models/driverProfileModel");
+const path = require("path");
 const {uploadSingleImage} = require('../midlewares/uploadImageMiddleWare');
+const { sendOtp, verifyOtp } = require("../utils/twilio");
 
 // Upload single image
 exports.uploadUserImage = uploadSingleImage('profileImg');
@@ -60,6 +63,12 @@ exports.updateMyProfile = asyncHandler(async (req, res, next) => {
 
   // 📱 لو غيّر رقم الموبايل
   if (req.body.phone && req.body.phone !== user.phone) {
+    // ✅ تحقق إن الرقم مش مستخدم عند حد تاني
+    const existingUser = await User.findOne({ phone: req.body.phone });
+    if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+      return next(new ApiError('Phone number already in use', 400));
+    }
+
     user.phone = req.body.phone;
     user.isPhoneVerified = false;
 
@@ -105,3 +114,84 @@ exports.verifyNewPhone = asyncHandler(async (req, res, next) => {
     data: user,
   });
 });
+
+
+
+
+// Helper function لحذف الصور من السيرفر
+const deleteImageFile = (imagePath) => {
+  if (!imagePath) return;
+  
+  // استخرجي اسم الملف من الـ URL
+  const fileName = imagePath.split('/').pop();
+  const filePath = path.join(__dirname, `../uploads/users/${fileName}`);
+  
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+};
+
+const deleteDriverImages = (profile) => {
+  if (!profile) return;
+  
+  const imagePaths = [
+    profile.licenseFront,
+    profile.licenseBack,
+    profile.carRegFront,
+    profile.carRegBack,
+    profile.nationalIdFront,
+    profile.nationalIdBack,
+    ...(profile.carPhotos || [])
+  ];
+  
+  imagePaths.forEach(imgPath => {
+    if (imgPath) {
+      const fileName = imgPath.split('/').pop();
+      const filePath = path.join(__dirname, `../uploads/drivers/${fileName}`);
+      
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+  });
+};
+
+// 🗑️ حذف الحساب نهائيًا
+exports.deleteMyAccount = asyncHandler(async (req, res, next) => {
+  const userId = req.user._id;
+  
+  // جيبي المستخدم
+  const user = await User.findById(userId);
+  if (!user) {
+    return next(new ApiError("User not found", 404));
+  }
+
+  // لو سواق، احذفي بروفايله وكل الصور المرتبطة
+  if (user.role === "driver" && user.driverProfile) {
+    const driverProfile = await DriverProfile.findById(user.driverProfile);
+    
+    if (driverProfile) {
+      // احذفي كل صور السواق
+      deleteDriverImages(driverProfile);
+      
+      // احذفي البروفايل من الداتابيز
+      await DriverProfile.findByIdAndDelete(user.driverProfile);
+    }
+  }
+
+  // احذفي صورة البروفايل الشخصية
+  if (user.profileImg) {
+    deleteImageFile(user.profileImg);
+  }
+
+  // 🔥 احذفي المستخدم نهائيًا
+  await User.findByIdAndDelete(userId);
+
+  res.status(200).json({
+    status: "success",
+    message: "Your account has been permanently deleted. We're sorry to see you go!",
+  });
+});
+
+
+// ✅ للأدمن: حذف أي حساب (تحديث للدالة الموجودة)
