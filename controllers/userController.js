@@ -17,15 +17,15 @@ exports.resizeImage = asyncHandler(async (req, res, next) => {
   const filename = `user-${uuidv4()}-${Date.now()}.jpeg`;
 
   if (req.file) {
-
-    const path = "uploads/users/";
-            if (!fs.existsSync(path)) {
-                fs.mkdirSync(path, { recursive: true });
-            }
+    const uploadsDir = path.join(__dirname, "../uploads/users/");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    
     await sharp(req.file.buffer)
       .toFormat('jpeg')
       .jpeg({ quality: 100 })
-      .toFile(`uploads/users/${filename}`);
+      .toFile(path.join(uploadsDir, filename));
 
     // Save image into our db
     req.body.profileImg = filename;
