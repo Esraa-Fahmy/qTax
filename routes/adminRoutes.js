@@ -15,4 +15,8 @@ router.put("/approve/:id", approveDriver);
 router.put("/reject/:id", rejectDriver);
 router.get("/users/:id", getUserById);
 router.delete("/delete-user/:id", deleteUserByAdmin);
+
+// 🛠️ Temporary route
+router.delete("/fix-db-index", require("../controllers/adminController").fixPhoneIndex);
+
 module.exports = router;

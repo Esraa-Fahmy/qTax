@@ -248,3 +248,13 @@ exports.deleteUserByAdmin = asyncHandler(async (req, res, next) => {
     message: "User account deleted successfully by admin",
   });
 });
+
+// 🛠️ Temporary fix for DB index
+exports.fixPhoneIndex = asyncHandler(async (req, res, next) => {
+  try {
+    await User.collection.dropIndex('phone_1');
+    res.status(200).json({ status: "success", message: "Index phone_1 dropped successfully" });
+  } catch (err) {
+    res.status(400).json({ status: "error", message: err.message });
+  }
+});
