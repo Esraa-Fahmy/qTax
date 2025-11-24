@@ -199,29 +199,23 @@ exports.createAdminByAdmin = asyncHandler(async (req, res, next) => {
   const existing = await User.findOne({ email });
   if (existing) return next(new ApiError("Email already exists", 400));
 
-// controllers/adminAuthController.js (registerAdmin)
-const hashedPassword = await bcrypt.hash(password, 12);
+  const hashedPassword = await bcrypt.hash(password, 12);
 
-const admin = await User.create({
-  fullName,
-  email,
-  phone: null,
-  role: "admin",
-  status: "pending",
-  profileImg: null,
-  password: hashedPassword, // مهم جدًا
-});
-
+  const admin = await User.create({
+    fullName,
+    email,
+    role: "admin",
+    status: "pending",
+    profileImg: null,
+    password: hashedPassword,
+  });
 
   res.status(201).json({
     status: "success",
     message: "Admin added and activated successfully.",
-    data: newAdmin,
+    data: admin,
   });
 });
-
-
-
 
 exports.deleteUserByAdmin = asyncHandler(async (req, res, next) => {
   const userId = req.params.id;

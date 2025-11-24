@@ -9,9 +9,8 @@ phone: {
   required: function () {
     return this.role !== "admin"; // ✅ مش مطلوب لو أدمن
   },
-  unique: function () {
-    return this.role !== "admin"; // ✅ مش لازم يكون فريد لو أدمن
-  },
+  unique: true,
+  sparse: true, // ✅ يسمح بتكرار القيمة null أو عدم وجود الحقل
 },
 
   profileImg: String,
