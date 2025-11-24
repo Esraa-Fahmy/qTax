@@ -4,6 +4,7 @@ const User = require("../models/userModel");
 const ApiError = require("../utils/apiError");
 const fs = require('fs');
 const path = require("path");
+const bcrypt = require("bcryptjs");
 
 // Helper function لحذف الصور من السيرفر
 const deleteImageFile = (imagePath) => {
