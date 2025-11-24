@@ -25,7 +25,7 @@ exports.uploadLicenseFront = asyncHandler(async (req, res, next) => {
   let profile = await DriverProfile.findOne({ user: req.user._id });
   if (!profile) profile = new DriverProfile({ user: req.user._id });
 
-  profile.licenseFront = setImageURL(req, fileName);
+  profile.licenseFront = fileName; // ✅ Save filename only
   profile.verificationStatus = "pending";
   await profile.save();
 
@@ -33,7 +33,7 @@ exports.uploadLicenseFront = asyncHandler(async (req, res, next) => {
     status: "success",
     message: "License front uploaded. Proceed to upload the back side.",
     nextStep: "upload-license-back",
-    imageUrl: profile.licenseFront, // ✅ رابط الصورة
+    imageUrl: `${process.env.BASE_URL}/uploads/drivers/${fileName}`,
   });
 });
 
@@ -51,14 +51,14 @@ exports.uploadLicenseBack = asyncHandler(async (req, res, next) => {
     .jpeg({ quality: 100 })
     .toFile(`${uploadsDir}/${fileName}`);
 
-  profile.licenseBack = setImageURL(req, fileName);
+  profile.licenseBack = fileName; // ✅ Save filename only
   await profile.save();
 
   res.status(200).json({
     status: "success",
     message: "License back uploaded. Proceed to upload car registration.",
     nextStep: "upload-car-registration",
-    imageUrl: profile.licenseBack,
+    imageUrl: `${process.env.BASE_URL}/uploads/drivers/${fileName}`,
   });
 });
 
@@ -67,18 +67,17 @@ exports.uploadCarRegistration = asyncHandler(async (req, res, next) => {
   const profile = await DriverProfile.findOne({ user: req.user._id });
   if (!profile || !profile.licenseBack)
     return next(new ApiError("Please upload your driving license first.", 400));
-if (!req.files || !req.files.carRegFront || !req.files.carRegBack)
-  return next(new ApiError("Both car registration images are required", 400));
+  if (!req.files || !req.files.carRegFront || !req.files.carRegBack)
+    return next(new ApiError("Both car registration images are required", 400));
 
-const frontName = `driver-${req.user._id}-carFront-${Date.now()}.jpeg`;
-const backName = `driver-${req.user._id}-carBack-${Date.now()}.jpeg`;
+  const frontName = `driver-${req.user._id}-carFront-${Date.now()}.jpeg`;
+  const backName = `driver-${req.user._id}-carBack-${Date.now()}.jpeg`;
 
-await sharp(req.files.carRegFront[0].buffer).toFile(`${uploadsDir}/${frontName}`);
-await sharp(req.files.carRegBack[0].buffer).toFile(`${uploadsDir}/${backName}`);
+  await sharp(req.files.carRegFront[0].buffer).toFile(`${uploadsDir}/${frontName}`);
+  await sharp(req.files.carRegBack[0].buffer).toFile(`${uploadsDir}/${backName}`);
 
-
-  profile.carRegFront = setImageURL(req, frontName);
-  profile.carRegBack = setImageURL(req, backName);
+  profile.carRegFront = frontName; // ✅ Save filename only
+  profile.carRegBack = backName;   // ✅ Save filename only
   await profile.save();
 
   res.status(200).json({
@@ -86,8 +85,8 @@ await sharp(req.files.carRegBack[0].buffer).toFile(`${uploadsDir}/${backName}`);
     message: "Car registration uploaded. Proceed to upload car photos.",
     nextStep: "upload-car-photos",
     imageUrls: {
-      front: profile.carRegFront,
-      back: profile.carRegBack,
+      front: `${process.env.BASE_URL}/uploads/drivers/${frontName}`,
+      back: `${process.env.BASE_URL}/uploads/drivers/${backName}`,
     },
   });
 });
@@ -98,26 +97,28 @@ exports.uploadCarPhotos = asyncHandler(async (req, res, next) => {
   if (!profile || !profile.carRegFront || !profile.carRegBack)
     return next(new ApiError("Please upload car registration first.", 400));
 
- if (!req.files || !req.files.carPhotos || req.files.carPhotos.length === 0)
-  return next(new ApiError("At least one car photo is required", 400));
+  if (!req.files || !req.files.carPhotos || req.files.carPhotos.length === 0)
+    return next(new ApiError("At least one car photo is required", 400));
 
-if (req.files.carPhotos.length > 5)
-  return next(new ApiError("You can upload up to 5 car photos only", 400));
+  if (req.files.carPhotos.length > 5)
+    return next(new ApiError("You can upload up to 5 car photos only", 400));
 
-const carPhotos = [];
+  const carPhotos = [];
+  const carPhotoUrls = [];
 
-for (const file of req.files.carPhotos) {
-  const fileName = `driver-${req.user._id}-carPhoto-${Date.now()}-${Math.round(
-    Math.random() * 1e4
-  )}.jpeg`;
+  for (const file of req.files.carPhotos) {
+    const fileName = `driver-${req.user._id}-carPhoto-${Date.now()}-${Math.round(
+      Math.random() * 1e4
+    )}.jpeg`;
 
-  await sharp(file.buffer)
-    .toFormat("jpeg")
-    .jpeg({ quality: 100 })
-    .toFile(`${uploadsDir}/${fileName}`);
+    await sharp(file.buffer)
+      .toFormat("jpeg")
+      .jpeg({ quality: 100 })
+      .toFile(`${uploadsDir}/${fileName}`);
 
-  carPhotos.push(setImageURL(req, fileName));
-}
+    carPhotos.push(fileName); // ✅ Save filename only
+    carPhotoUrls.push(`${process.env.BASE_URL}/uploads/drivers/${fileName}`);
+  }
 
   profile.carPhotos = carPhotos;
   await profile.save();
@@ -127,7 +128,7 @@ for (const file of req.files.carPhotos) {
     message: "Car photos uploaded successfully. Proceed to upload your national ID.",
     nextStep: "upload-national-id",
     uploadedCount: carPhotos.length,
-    imageUrls: carPhotos, // ✅ كل صور العربية
+    imageUrls: carPhotoUrls,
   });
 });
 
@@ -137,18 +138,17 @@ exports.uploadNationalId = asyncHandler(async (req, res, next) => {
   if (!profile || !profile.carRegFront || !profile.carRegBack)
     return next(new ApiError("Please upload car registration first.", 400));
 
-if (!req.files.nationalIdFront || !req.files.nationalIdBack)
+  if (!req.files.nationalIdFront || !req.files.nationalIdBack)
     return next(new ApiError("Both national ID images are required", 400));
 
   const frontName = `driver-${req.user._id}-nidFront-${Date.now()}.jpeg`;
   const backName = `driver-${req.user._id}-nidBack-${Date.now()}.jpeg`;
   
-await sharp(req.files.nationalIdFront[0].buffer).toFile(`${uploadsDir}/${frontName}`);
-await sharp(req.files.nationalIdBack[0].buffer).toFile(`${uploadsDir}/${backName}`);
+  await sharp(req.files.nationalIdFront[0].buffer).toFile(`${uploadsDir}/${frontName}`);
+  await sharp(req.files.nationalIdBack[0].buffer).toFile(`${uploadsDir}/${backName}`);
 
-
-  profile.nationalIdFront = setImageURL(req, frontName);
-  profile.nationalIdBack = setImageURL(req, backName);
+  profile.nationalIdFront = frontName; // ✅ Save filename only
+  profile.nationalIdBack = backName;   // ✅ Save filename only
   profile.verificationStatus = "pending";
   await profile.save();
 
@@ -157,8 +157,8 @@ await sharp(req.files.nationalIdBack[0].buffer).toFile(`${uploadsDir}/${backName
     message: "All documents uploaded successfully. Awaiting admin review.",
     verificationStatus: "pending",
     imageUrls: {
-      front: profile.nationalIdFront,
-      back: profile.nationalIdBack,
+      front: `${process.env.BASE_URL}/uploads/drivers/${frontName}`,
+      back: `${process.env.BASE_URL}/uploads/drivers/${backName}`,
     },
   });
 });

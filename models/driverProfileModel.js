@@ -29,4 +29,31 @@ const driverProfileSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const setImageURL = (doc) => {
+  const baseUrl = process.env.BASE_URL;
+  const fields = [
+    'licenseFront', 'licenseBack', 
+    'carRegFront', 'carRegBack', 
+    'nationalIdFront', 'nationalIdBack'
+  ];
+
+  fields.forEach(field => {
+    if (doc[field] && !doc[field].startsWith('http')) {
+      doc[field] = `${baseUrl}/uploads/drivers/${doc[field]}`;
+    }
+  });
+
+  if (doc.carPhotos && doc.carPhotos.length > 0) {
+    doc.carPhotos = doc.carPhotos.map(photo => {
+      if (photo && !photo.startsWith('http')) {
+        return `${baseUrl}/uploads/drivers/${photo}`;
+      }
+      return photo;
+    });
+  }
+};
+
+driverProfileSchema.post("init", setImageURL);
+driverProfileSchema.post("save", setImageURL);
+
 module.exports = mongoose.model("DriverProfile", driverProfileSchema);
