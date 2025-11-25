@@ -10,7 +10,6 @@ const globalError = require("./midlewares/errmiddleware");
 const authRoutes = require("./routes/authRoute");
 const adminRoutes = require("./routes/adminRoutes");
 const driverProfileRoutes = require("./routes/driverProfile");
-const driverRoutes = require("./routes/driverRoutes");
 const passengerRoutes = require("./routes/passengerRoutes");
 const usersRoutes = require("./routes/userRoutes");
 const { initSocket } = require("./utils/socket");
@@ -31,8 +30,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 //Mount
 app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/driver/profile", driverProfileRoutes);
-app.use("/api/v1/driver", driverRoutes);
+app.use("/api/v1/driver", driverProfileRoutes);
 app.use("/api/v1/passenger", passengerRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/users", usersRoutes);
