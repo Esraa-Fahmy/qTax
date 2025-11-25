@@ -312,7 +312,14 @@ exports.getActiveRide = asyncHandler(async (req, res, next) => {
     passenger: req.user._id,
     status: { $in: ["pending", "accepted", "started", "arrived"] },
   })
-    .populate("driver", "fullName phone profileImg rating currentLocation")
+    .populate({
+      path: "driver",
+      select: "fullName phone profileImg rating currentLocation driverProfile",
+      populate: {
+        path: "driverProfile",
+        select: "carPhotos",
+      },
+    })
     .populate("passenger", "fullName phone profileImg");
 
   if (!ride) {
@@ -340,7 +347,14 @@ exports.getRideHistory = asyncHandler(async (req, res, next) => {
     passenger: req.user._id,
     status: { $in: ["completed", "cancelled"] },
   })
-    .populate("driver", "fullName phone profileImg rating")
+    .populate({
+      path: "driver",
+      select: "fullName phone profileImg rating driverProfile",
+      populate: {
+        path: "driverProfile",
+        select: "carPhotos",
+      },
+    })
     .sort({ completedAt: -1, cancelledAt: -1 })
     .skip(skip)
     .limit(limit);

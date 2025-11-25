@@ -13,6 +13,20 @@ const getRoleFromPath = (req) => {
   return "user";
 };
 
+// Helper function to filter driver-specific fields
+const filterDriverFields = (userData) => {
+  if (userData.role !== 'driver') {
+    delete userData.earnings;
+    delete userData.isOnline;
+    delete userData.currentLocation;
+    delete userData.autoAcceptRequests;
+    delete userData.pickupRadius;
+    delete userData.driverProfile;
+  }
+  delete userData.password; // Always remove password
+  return userData;
+};
+
 // 📤 إرسال كود OTP باستخدام Twilio
 exports.sendOtpCode = asyncHandler(async (req, res, next) => {
   const { phone } = req.body;
@@ -59,16 +73,8 @@ exports.verifyOtpCode = asyncHandler(async (req, res, next) => {
   // 🎟️ أنشئي التوكن
   const token = createToken(user._id);
 
-  // Convert to plain object and filter driver fields for non-drivers
-  const userData = user.toObject();
-  if (userData.role !== 'driver') {
-    delete userData.earnings;
-    delete userData.isOnline;
-    delete userData.currentLocation;
-    delete userData.autoAcceptRequests;
-    delete userData.pickupRadius;
-    delete userData.driverProfile;
-  }
+  // Filter driver fields
+  const userData = filterDriverFields(user.toObject());
 
   res.status(200).json({
     status: "success",
@@ -126,15 +132,8 @@ exports.loginAdmin = asyncHandler(async (req, res, next) => {
     expiresIn: process.env.JWT_EXPIRE_TIME,
   });
 
-  // Convert to plain object and hide driver fields
-  const adminData = admin.toObject();
-  delete adminData.password;
-  delete adminData.earnings;
-  delete adminData.isOnline;
-  delete adminData.currentLocation;
-  delete adminData.autoAcceptRequests;
-  delete adminData.pickupRadius;
-  delete adminData.driverProfile;
+  // Filter driver fields and password
+  const adminData = filterDriverFields(admin.toObject());
 
   res.status(200).json({
     status: "success",

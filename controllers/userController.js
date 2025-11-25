@@ -34,6 +34,18 @@ exports.resizeImage = asyncHandler(async (req, res, next) => {
   next();
 });
 
+// Helper function to filter driver-specific fields
+const filterDriverFields = (userData) => {
+  if (userData.role !== 'driver') {
+    delete userData.earnings;
+    delete userData.isOnline;
+    delete userData.currentLocation;
+    delete userData.autoAcceptRequests;
+    delete userData.pickupRadius;
+    delete userData.driverProfile;
+  }
+  return userData;
+};
 
 
 exports.getMyProfile = asyncHandler(async (req, res, next) => {
@@ -43,18 +55,8 @@ exports.getMyProfile = asyncHandler(async (req, res, next) => {
     return next(new ApiError('User not found', 404));
   }
 
-  // Convert to plain object
-  const userData = user.toObject();
-
-  // Hide driver-specific fields for non-drivers
-  if (userData.role !== 'driver') {
-    delete userData.earnings;
-    delete userData.isOnline;
-    delete userData.currentLocation;
-    delete userData.autoAcceptRequests;
-    delete userData.pickupRadius;
-    delete userData.driverProfile;
-  }
+  // Convert to plain object and filter driver fields
+  const userData = filterDriverFields(user.toObject());
 
   res.status(200).json({
     status: 'success',
@@ -100,10 +102,13 @@ exports.updateMyProfile = asyncHandler(async (req, res, next) => {
   Object.assign(user, updates);
   await user.save();
 
+  // Convert to plain object and filter driver fields
+  const userData = filterDriverFields(user.toObject());
+
   res.status(200).json({
     status: 'success',
     message: 'Profile updated successfully',
-    data: user,
+    data: userData,
   });
 });
 
