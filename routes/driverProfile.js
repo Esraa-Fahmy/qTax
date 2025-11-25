@@ -56,11 +56,11 @@ const requireActive = (req, res, next) => {
 // Profile Routes (accessible even when pending)
 // ============================================
 
-router.post("/profile/license-front", uploadSingleImage("licenseFront"), uploadLicenseFront);
-router.post("/profile/license-back", uploadSingleImage("licenseBack"), uploadLicenseBack);
+router.post("/license-front", uploadSingleImage("licenseFront"), uploadLicenseFront);
+router.post("/license-back", uploadSingleImage("licenseBack"), uploadLicenseBack);
 
 router.post(
-  "/profile/car-registration",
+  "/car-registration",
   uploadMixOfImages([
     { name: "carRegFront", maxCount: 1 },
     { name: "carRegBack", maxCount: 1 },
@@ -69,13 +69,13 @@ router.post(
 );
 
 router.post(
-  "/profile/car-photos",
+  "/car-photos",
   uploadMixOfImages([{ name: "carPhotos", maxCount: 5 }]),
   uploadCarPhotos
 );
 
 router.post(
-  "/profile/national-id",
+  "/national-id",
   uploadMixOfImages([
     { name: "nationalIdFront", maxCount: 1 },
     { name: "nationalIdBack", maxCount: 1 },
@@ -83,8 +83,8 @@ router.post(
   uploadNationalId
 );
 
-router.post("/profile/submit-review", submitForReview);
-router.get("/profile/status", getVerificationStatus);
+router.post("/submit-review", submitForReview);
+router.get("/status", getVerificationStatus);
 
 // ============================================
 // Driver Status Routes (require active status)
