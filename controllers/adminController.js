@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const DriverProfile = require("../models/driverProfileModel");
 const User = require("../models/userModel");
+const Ride = require("../models/rideModel");
 const ApiError = require("../utils/apiError");
 const fs = require('fs');
 const path = require("path");
@@ -249,3 +250,174 @@ exports.deleteUserByAdmin = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get all rides with filters
+// @route   GET /api/v1/admin/rides
+// @access  Private (Admin only)
+exports.getAllRides = asyncHandler(async (req, res, next) => {
+  const { status, page = 1, limit = 20 } = req.query;
+  const skip = (page - 1) * limit;
+
+  const filter = {};
+  if (status) filter.status = status;
+
+  const [rides, total] = await Promise.all([
+    Ride.find(filter)
+      .populate("driver", "fullName phone rating")
+      .populate("passenger", "fullName phone rating")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Ride.countDocuments(filter),
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    results: rides.length,
+    total,
+    totalPages: Math.ceil(total / limit),
+    currentPage: +page,
+    data: rides,
+  });
+});
+
+// @desc    Get ride statistics
+// @route   GET /api/v1/admin/rides/stats
+// @access  Private (Admin only)
+exports.getRideStats = asyncHandler(async (req, res, next) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [
+    totalRides,
+    completedRides,
+    activeRides,
+    cancelledRides,
+    todayRides,
+    totalRevenue,
+  ] = await Promise.all([
+    Ride.countDocuments(),
+    Ride.countDocuments({ status: "completed" }),
+    Ride.countDocuments({ status: { $in: ["pending", "accepted", "started", "arrived"] } }),
+    Ride.countDocuments({ status: "cancelled" }),
+    Ride.countDocuments({ createdAt: { $gte: today } }),
+    Ride.aggregate([
+      { $match: { status: "completed" } },
+      { $group: { _id: null, total: { $sum: "$fare" } } },
+    ]),
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      totalRides,
+      completedRides,
+      activeRides,
+      cancelledRides,
+      todayRides,
+      totalRevenue: totalRevenue[0]?.total || 0,
+    },
+  });
+});
+
+// @desc    Get ride by ID
+// @route   GET /api/v1/admin/rides/:id
+// @access  Private (Admin only)
+exports.getRideById = asyncHandler(async (req, res, next) => {
+  const ride = await Ride.findById(req.params.id)
+    .populate("driver", "fullName phone profileImg rating")
+    .populate("passenger", "fullName phone profileImg rating");
+
+  if (!ride) {
+    return next(new ApiError("Ride not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: ride,
+  });
+});
+
+// @desc    Create voucher
+// @route   POST /api/v1/admin/vouchers
+// @access  Private (Admin only)
+exports.createVoucher = asyncHandler(async (req, res, next) => {
+  const Voucher = require("../models/voucherModel");
+  
+  const voucher = await Voucher.create(req.body);
+
+  res.status(201).json({
+    status: "success",
+    message: "Voucher created successfully",
+    data: voucher,
+  });
+});
+
+// @desc    Get all vouchers
+// @route   GET /api/v1/admin/vouchers
+// @access  Private (Admin only)
+exports.getAllVouchers = asyncHandler(async (req, res, next) => {
+  const Voucher = require("../models/voucherModel");
+  
+  const vouchers = await Voucher.find().sort({ createdAt: -1 });
+
+  res.status(200).json({
+    status: "success",
+    results: vouchers.length,
+    data: vouchers,
+  });
+});
+
+// @desc    Update voucher
+// @route   PUT /api/v1/admin/vouchers/:id
+// @access  Private (Admin only)
+exports.updateVoucher = asyncHandler(async (req, res, next) => {
+  const Voucher = require("../models/voucherModel");
+  
+  const voucher = await Voucher.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (!voucher) {
+    return next(new ApiError("Voucher not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "Voucher updated successfully",
+    data: voucher,
+  });
+});
+
+// @desc    Delete voucher
+// @route   DELETE /api/v1/admin/vouchers/:id
+// @access  Private (Admin only)
+exports.deleteVoucher = asyncHandler(async (req, res, next) => {
+  const Voucher = require("../models/voucherModel");
+  
+  const voucher = await Voucher.findByIdAndDelete(req.params.id);
+
+  if (!voucher) {
+    return next(new ApiError("Voucher not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "Voucher deleted successfully",
+  });
+});
+
+// @desc    Get all wallet transactions
+// @route   GET /api/v1/admin/wallets
+// @access  Private (Admin only)
+exports.getAllWalletTransactions = asyncHandler(async (req, res, next) => {
+  const Wallet = require("../models/walletModel");
+  
+  const wallets = await Wallet.find().populate("user", "fullName phone email");
+
+  res.status(200).json({
+    status: "success",
+    results: wallets.length,
+    data: wallets,
+  });
+});

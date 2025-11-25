@@ -193,5 +193,84 @@ exports.deleteMyAccount = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Save address (home, work, favorite)
+// @route   POST /api/v1/user/addresses
+// @access  Private
+exports.saveAddress = asyncHandler(async (req, res, next) => {
+  const { label, address, latitude, longitude } = req.body;
+
+  if (!label || !address || !latitude || !longitude) {
+    return next(new ApiError("All fields are required", 400));
+  }
+
+  if (!["home", "work", "favorite"].includes(label)) {
+    return next(new ApiError("Label must be home, work, or favorite", 400));
+  }
+
+  const user = await User.findById(req.user._id);
+
+  // Check if label already exists
+  const existingIndex = user.savedAddresses.findIndex(
+    (addr) => addr.label === label
+  );
+
+  if (existingIndex !== -1) {
+    // Update existing
+    user.savedAddresses[existingIndex] = {
+      label,
+      address,
+      coordinates: { latitude, longitude },
+    };
+  } else {
+    // Add new
+    user.savedAddresses.push({
+      label,
+      address,
+      coordinates: { latitude, longitude },
+    });
+  }
+
+  await user.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "Address saved successfully",
+    data: user.savedAddresses,
+  });
+});
+
+// @desc    Get saved addresses
+// @route   GET /api/v1/user/addresses
+// @access  Private
+exports.getAddresses = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.user._id).select("savedAddresses");
+
+  res.status(200).json({
+    status: "success",
+    results: user.savedAddresses.length,
+    data: user.savedAddresses,
+  });
+});
+
+// @desc    Delete saved address
+// @route   DELETE /api/v1/user/addresses/:label
+// @access  Private
+exports.deleteAddress = asyncHandler(async (req, res, next) => {
+  const { label } = req.params;
+
+  const user = await User.findById(req.user._id);
+
+  user.savedAddresses = user.savedAddresses.filter(
+    (addr) => addr.label !== label
+  );
+
+  await user.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "Address deleted successfully",
+    data: user.savedAddresses,
+  });
+});
 
 // ✅ للأدمن: حذف أي حساب (تحديث للدالة الموجودة)

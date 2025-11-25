@@ -16,5 +16,20 @@ router.put("/reject/:id", rejectDriver);
 router.get("/users/:id", getUserById);
 router.delete("/delete-user/:id", deleteUserByAdmin);
 
+// Ride management routes
+const { getAllRides, getRideStats, getRideById, createVoucher, getAllVouchers, updateVoucher, deleteVoucher, getAllWalletTransactions } = require("../controllers/adminController");
+router.get("/rides", getAllRides);
+router.get("/rides/stats", getRideStats);
+router.get("/rides/:id", getRideById);
+
+// Voucher management routes
+router.post("/vouchers", createVoucher);
+router.get("/vouchers", getAllVouchers);
+router.put("/vouchers/:id", updateVoucher);
+router.delete("/vouchers/:id", deleteVoucher);
+
+// Wallet management routes
+router.get("/wallets", getAllWalletTransactions);
+
 
 module.exports = router;
