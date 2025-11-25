@@ -33,7 +33,11 @@ select: false
   status: {
     type: String,
     enum: ["pending", "active", "rejected"],
-    default: "pending",
+    default: function() {
+      // Users (passengers) are active by default
+      // Drivers and admins need approval
+      return this.role === 'user' ? 'active' : 'pending';
+    },
   },
 
   driverProfile: {
