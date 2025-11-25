@@ -15,6 +15,8 @@ const { uploadSingleImage, uploadMixOfImages } = require("../midlewares/uploadIm
 const router = express.Router();
 
 // 🪪 لازم يكون سواق فقط
+// Note: These routes are accessible even when status is "pending"
+// to allow new drivers to upload documents before approval
 router.use(protect, allowedTo("driver"));
 
 // مراحل رفع الصور
