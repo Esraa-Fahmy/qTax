@@ -59,18 +59,25 @@ exports.verifyOtpCode = asyncHandler(async (req, res, next) => {
   // 🎟️ أنشئي التوكن
   const token = createToken(user._id);
 
+  // Convert to plain object and filter driver fields for non-drivers
+  const userData = user.toObject();
+  if (userData.role !== 'driver') {
+    delete userData.earnings;
+    delete userData.isOnline;
+    delete userData.currentLocation;
+    delete userData.autoAcceptRequests;
+    delete userData.pickupRadius;
+    delete userData.driverProfile;
+  }
+
   res.status(200).json({
     status: "success",
     message: "Phone verified successfully",
     isFirstTime,
-    data: user,
+    data: userData,
     token,
   });
 });
-
-
-
-
 
 // controllers/adminAuthController.js
 
@@ -82,19 +89,17 @@ exports.registerAdmin = asyncHandler(async (req, res, next) => {
   const existing = await User.findOne({ email });
   if (existing) return next(new ApiError("Email already exists", 400));
 
- // controllers/adminAuthController.js (registerAdmin)
-const hashedPassword = await bcrypt.hash(password, 12);
+  const hashedPassword = await bcrypt.hash(password, 12);
 
-const admin = await User.create({
-  fullName,
-  email,
-  phone: null,
-  role: "admin",
-  status: "pending",
-  profileImg: null,
-  password: hashedPassword, // مهم جدًا
-});
-
+  const admin = await User.create({
+    fullName,
+    email,
+    phone: null,
+    role: "admin",
+    status: "pending",
+    profileImg: null,
+    password: hashedPassword,
+  });
 
   res.status(201).json({
     status: "success",
@@ -108,28 +113,33 @@ exports.loginAdmin = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
   if (!email || !password) return next(new ApiError("Email and password are required", 400));
 
-// controllers/adminAuthController.js (loginAdmin)
-const admin = await User.findOne({ email, role: "admin" }).select("+password");
-if (!admin) return next(new ApiError("Admin not found", 404));
+  const admin = await User.findOne({ email, role: "admin" }).select("+password");
+  if (!admin) return next(new ApiError("Admin not found", 404));
 
-const match = await bcrypt.compare(password, admin.password || "");
-if (!match) return next(new ApiError("Incorrect password", 401));
+  const match = await bcrypt.compare(password, admin.password || "");
+  if (!match) return next(new ApiError("Incorrect password", 401));
 
-if (admin.status !== "active")
-  return next(new ApiError("Your account is not approved yet", 403));
+  if (admin.status !== "active")
+    return next(new ApiError("Your account is not approved yet", 403));
 
-const token = jwt.sign({ userId: admin._id }, process.env.JWT_SECRET_KEY, {
-  expiresIn: process.env.JWT_EXPIRE_TIME,
-});
+  const token = jwt.sign({ userId: admin._id }, process.env.JWT_SECRET_KEY, {
+    expiresIn: process.env.JWT_EXPIRE_TIME,
+  });
 
-// Hide password before returning if you like
-admin.password = undefined;
+  // Convert to plain object and hide driver fields
+  const adminData = admin.toObject();
+  delete adminData.password;
+  delete adminData.earnings;
+  delete adminData.isOnline;
+  delete adminData.currentLocation;
+  delete adminData.autoAcceptRequests;
+  delete adminData.pickupRadius;
+  delete adminData.driverProfile;
 
-res.status(200).json({
-  status: "success",
-  message: "Logged in successfully",
-  token,
-  data: admin,
-});
-
+  res.status(200).json({
+    status: "success",
+    message: "Logged in successfully",
+    token,
+    data: adminData,
+  });
 });

@@ -43,9 +43,22 @@ exports.getMyProfile = asyncHandler(async (req, res, next) => {
     return next(new ApiError('User not found', 404));
   }
 
+  // Convert to plain object
+  const userData = user.toObject();
+
+  // Hide driver-specific fields for non-drivers
+  if (userData.role !== 'driver') {
+    delete userData.earnings;
+    delete userData.isOnline;
+    delete userData.currentLocation;
+    delete userData.autoAcceptRequests;
+    delete userData.pickupRadius;
+    delete userData.driverProfile;
+  }
+
   res.status(200).json({
     status: 'success',
-    data: user,
+    data: userData,
   });
 });
 
