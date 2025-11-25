@@ -20,6 +20,6 @@ router.use(protect);
 router.get("/profile", getMyProfile);
 router.put("/profile", uploadUserImage, resizeImage, updateMyProfile);
 router.post("/profile/verify-phone", verifyNewPhone);
-router.delete("/profile", deleteMyAccount);
+router.delete("/deleteMe", deleteMyAccount);
 
 module.exports = router;
