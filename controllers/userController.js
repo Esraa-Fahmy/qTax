@@ -93,7 +93,10 @@ exports.updateMyProfile = asyncHandler(async (req, res, next) => {
       return next(new ApiError('Phone number already in use', 400));
     }
 
-    user.phone = req.body.phone;
+    // Store new phone temporarily (don't change actual phone yet!)
+    user.tempPhone = req.body.phone;
+    user.tempPhoneOTP = Math.floor(100000 + Math.random() * 900000).toString();
+    user.tempPhoneOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     user.isPhoneVerified = false;
 
     // ابعتي كود تحقق جديد
@@ -130,12 +133,23 @@ exports.verifyNewPhone = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user._id);
   if (!user) return next(new ApiError('User not found', 404));
 
-  const result = await verifyOtp(user.phone, code);
+  // Check if there's a pending phone change
+  if (!user.tempPhone) {
+    return next(new ApiError('No pending phone change request', 400));
+  }
+
+  // Verify OTP for the NEW phone number
+  const result = await verifyOtp(user.tempPhone, code);
   if (result.status !== 'approved') {
     return next(new ApiError('Invalid or expired OTP', 400));
   }
 
+  // Update to new phone and clear temp fields
+  user.phone = user.tempPhone;
   user.isPhoneVerified = true;
+  user.tempPhone = undefined;
+  user.tempPhoneOTP = undefined;
+  user.tempPhoneOTPExpires = undefined;
   await user.save();
 
   // Convert to plain object using JSON
