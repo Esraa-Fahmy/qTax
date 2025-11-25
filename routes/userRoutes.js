@@ -7,9 +7,6 @@ const {
   uploadUserImage,
   resizeImage,
   deleteMyAccount,
-  saveAddress,
-  getAddresses,
-  deleteAddress,
 } = require("../controllers/userController");
 
 const { protect } = require("../midlewares/roleMiddleware");
@@ -24,10 +21,5 @@ router.get("/profile", getMyProfile);
 router.put("/profile", uploadUserImage, resizeImage, updateMyProfile);
 router.post("/profile/verify-phone", verifyNewPhone);
 router.delete("/profile", deleteMyAccount);
-
-// Saved addresses routes
-router.post("/addresses", saveAddress);
-router.get("/addresses", getAddresses);
-router.delete("/addresses/:label", deleteAddress);
 
 module.exports = router;

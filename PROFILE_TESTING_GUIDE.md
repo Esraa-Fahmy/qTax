@@ -29,7 +29,7 @@ http://213.210.20.206:9000
 
 ---
 
-## 👤 اختبار البروفايل
+## 👤 اختبار البروفايل (للكل - User, Driver, Admin)
 
 ### 3. عرض البروفايل
 **GET** `http://213.210.20.206:9000/api/v1/users/profile`
@@ -129,10 +129,10 @@ Content-Type: application/json
 
 ---
 
-## 📍 اختبار العناوين المحفوظة
+## 📍 اختبار العناوين المحفوظة (للراكب فقط)
 
 ### 8. حفظ عنوان المنزل
-**POST** `http://213.210.20.206:9000/api/v1/users/addresses`
+**POST** `http://213.210.20.206:9000/api/v1/passenger/addresses`
 
 **Headers:**
 ```
@@ -153,7 +153,7 @@ Content-Type: application/json
 ---
 
 ### 9. حفظ عنوان العمل
-**POST** `http://213.210.20.206:9000/api/v1/users/addresses`
+**POST** `http://213.210.20.206:9000/api/v1/passenger/addresses`
 
 **Body (JSON):**
 ```json
@@ -168,7 +168,7 @@ Content-Type: application/json
 ---
 
 ### 10. عرض كل العناوين
-**GET** `http://213.210.20.206:9000/api/v1/users/addresses`
+**GET** `http://213.210.20.206:9000/api/v1/passenger/addresses`
 
 **Headers:**
 ```
@@ -178,7 +178,7 @@ Authorization: Bearer YOUR_TOKEN
 ---
 
 ### 11. حذف عنوان
-**DELETE** `http://213.210.20.206:9000/api/v1/users/addresses/home`
+**DELETE** `http://213.210.20.206:9000/api/v1/passenger/addresses/home`
 
 **Headers:**
 ```
@@ -189,23 +189,30 @@ Authorization: Bearer YOUR_TOKEN
 
 ## ✅ ملخص الـ Endpoints
 
+### Profile (للكل - User, Driver, Admin):
 | الوظيفة | Method | URL |
 |---------|--------|-----|
 | عرض البروفايل | GET | `/api/v1/users/profile` |
 | تحديث البروفايل | PUT | `/api/v1/users/profile` |
 | التحقق من الرقم | POST | `/api/v1/users/profile/verify-phone` |
-| حفظ عنوان | POST | `/api/v1/users/addresses` |
-| عرض العناوين | GET | `/api/v1/users/addresses` |
-| حذف عنوان | DELETE | `/api/v1/users/addresses/:label` |
+
+### Addresses (للراكب فقط):
+| الوظيفة | Method | URL |
+|---------|--------|-----|
+| حفظ عنوان | POST | `/api/v1/passenger/addresses` |
+| عرض العناوين | GET | `/api/v1/passenger/addresses` |
+| حذف عنوان | DELETE | `/api/v1/passenger/addresses/:label` |
 
 ---
 
 ## 📝 ملاحظات مهمة
 
-1. ✅ **كل الـ endpoints دي بتشتغل لـ User, Driver, Admin!**
-2. ✅ **تغيير رقم التليفون بيبعت OTP تلقائي**
-3. ✅ **الأدمن مش محتاج رقم تليفون (اختياري)**
-4. ✅ **الصورة لازم تتبعت كـ form-data مش JSON**
-5. ✅ **الـ Base URL: `/api/v1/users` - عام للكل!**
+1. ✅ **Profile endpoints** بتشتغل لـ User, Driver, Admin
+2. ✅ **Addresses endpoints** للراكب فقط
+3. ✅ **تغيير رقم التليفون بيبعت OTP تلقائي**
+4. ✅ **الأدمن مش محتاج رقم تليفون (اختياري)**
+5. ✅ **الصورة لازم تتبعت كـ form-data مش JSON**
+6. ✅ **الراكب مش هيشوف بيانات السواق الخاصة** (earnings, isOnline, pickupRadius)
+7. ✅ **السواق مش هيشوف بيانات الراكب الخاصة** (wallet, vouchers, addresses)
 
 جاهزة للاختبار! 🚀

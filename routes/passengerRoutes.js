@@ -33,6 +33,13 @@ const {
   deleteNotification,
 } = require("../controllers/notificationController");
 
+// Address controllers (from userController)
+const {
+  saveAddress,
+  getAddresses,
+  deleteAddress,
+} = require("../controllers/userController");
+
 const router = express.Router();
 
 // Protect all routes and restrict to passengers (users)
@@ -61,5 +68,10 @@ router.get("/notifications", getNotifications);
 router.put("/notifications/:id/read", markAsRead);
 router.put("/notifications/read-all", markAllAsRead);
 router.delete("/notifications/:id", deleteNotification);
+
+// Saved addresses routes (passenger-only)
+router.post("/addresses", saveAddress);
+router.get("/addresses", getAddresses);
+router.delete("/addresses/:label", deleteAddress);
 
 module.exports = router;
