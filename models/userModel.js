@@ -88,7 +88,7 @@ select: false
 
 
 const setImageURL = (doc) => {
-  if (doc.profileImg) {
+  if (doc.profileImg && !doc.profileImg.startsWith('http')) {
     doc.profileImg = `${process.env.BASE_URL}/uploads/users/${doc.profileImg}`;
   }
 };
