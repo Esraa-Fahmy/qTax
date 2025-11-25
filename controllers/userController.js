@@ -44,6 +44,12 @@ const filterDriverFields = (userData) => {
     delete userData.pickupRadius;
     delete userData.driverProfile;
   }
+  
+  // Hide savedAddresses from non-passengers
+  if (userData.role !== 'user') {
+    delete userData.savedAddresses;
+  }
+  
   return userData;
 };
 
