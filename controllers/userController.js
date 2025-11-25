@@ -55,8 +55,11 @@ exports.getMyProfile = asyncHandler(async (req, res, next) => {
     return next(new ApiError('User not found', 404));
   }
 
-  // Convert to plain object and filter driver fields
-  const userData = filterDriverFields(user.toObject());
+  // Convert to plain object using JSON
+  const userData = JSON.parse(JSON.stringify(user));
+  
+  // Filter driver fields
+  filterDriverFields(userData);
 
   res.status(200).json({
     status: 'success',
@@ -102,8 +105,11 @@ exports.updateMyProfile = asyncHandler(async (req, res, next) => {
   Object.assign(user, updates);
   await user.save();
 
-  // Convert to plain object and filter driver fields
-  const userData = filterDriverFields(user.toObject());
+  // Convert to plain object using JSON
+  const userData = JSON.parse(JSON.stringify(user));
+  
+  // Filter driver fields
+  filterDriverFields(userData);
 
   res.status(200).json({
     status: 'success',
