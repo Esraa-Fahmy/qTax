@@ -132,10 +132,16 @@ exports.verifyNewPhone = asyncHandler(async (req, res, next) => {
   user.isPhoneVerified = true;
   await user.save();
 
+  // Convert to plain object using JSON
+  const userData = JSON.parse(JSON.stringify(user));
+  
+  // Filter driver fields
+  filterDriverFields(userData);
+
   res.status(200).json({
     status: 'success',
     message: 'Phone verified successfully',
-    data: user,
+    data: userData,
   });
 });
 
