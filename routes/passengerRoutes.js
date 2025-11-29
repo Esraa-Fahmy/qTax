@@ -37,6 +37,8 @@ const {
 const {
   saveAddress,
   getAddresses,
+  getAddressById,
+  updateAddress,
   deleteAddress,
 } = require("../controllers/userController");
 
@@ -72,6 +74,8 @@ router.delete("/notifications/:id", deleteNotification);
 // Saved addresses routes (passenger-only)
 router.post("/addresses", saveAddress);
 router.get("/addresses", getAddresses);
-router.delete("/addresses/:label", deleteAddress);
+router.get("/addresses/:id", getAddressById);
+router.put("/addresses/:id", updateAddress);
+router.delete("/addresses/:id", deleteAddress);
 
 module.exports = router;

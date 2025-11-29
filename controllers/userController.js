@@ -302,17 +302,94 @@ exports.getAddresses = asyncHandler(async (req, res, next) => {
   });
 });
 
-// @desc    Delete saved address
-// @route   DELETE /api/v1/user/addresses/:label
+// @desc    Get single saved address by ID
+// @route   GET /api/v1/user/addresses/:id
 // @access  Private
-exports.deleteAddress = asyncHandler(async (req, res, next) => {
-  const { label } = req.params;
+exports.getAddressById = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  const user = await User.findById(req.user._id).select("savedAddresses");
+
+  const address = user.savedAddresses.id(id);
+
+  if (!address) {
+    return next(new ApiError("Address not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: address,
+  });
+});
+
+// @desc    Update saved address by ID
+// @route   PUT /api/v1/user/addresses/:id
+// @access  Private
+exports.updateAddress = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { label, address, latitude, longitude } = req.body;
+
+  if (!label && !address && !latitude && !longitude) {
+    return next(new ApiError("At least one field is required to update", 400));
+  }
+
+  if (label && !["home", "work", "favorite"].includes(label)) {
+    return next(new ApiError("Label must be home, work, or favorite", 400));
+  }
 
   const user = await User.findById(req.user._id);
 
-  user.savedAddresses = user.savedAddresses.filter(
-    (addr) => addr.label !== label
-  );
+  const addressDoc = user.savedAddresses.id(id);
+
+  if (!addressDoc) {
+    return next(new ApiError("Address not found", 404));
+  }
+
+  // Check if new label already exists in another address
+  if (label && label !== addressDoc.label) {
+    const existingLabel = user.savedAddresses.find(
+      (addr) => addr.label === label && addr._id.toString() !== id
+    );
+    if (existingLabel) {
+      return next(new ApiError(`Address with label '${label}' already exists`, 400));
+    }
+  }
+
+  // Update fields
+  if (label) addressDoc.label = label;
+  if (address) addressDoc.address = address;
+  if (latitude !== undefined || longitude !== undefined) {
+    addressDoc.coordinates = {
+      latitude: latitude !== undefined ? latitude : addressDoc.coordinates.latitude,
+      longitude: longitude !== undefined ? longitude : addressDoc.coordinates.longitude,
+    };
+  }
+
+  await user.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "Address updated successfully",
+    data: addressDoc,
+  });
+});
+
+// @desc    Delete saved address by ID
+// @route   DELETE /api/v1/user/addresses/:id
+// @access  Private
+exports.deleteAddress = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  const user = await User.findById(req.user._id);
+
+  const address = user.savedAddresses.id(id);
+
+  if (!address) {
+    return next(new ApiError("Address not found", 404));
+  }
+
+  // Remove the address using pull method
+  user.savedAddresses.pull(id);
 
   await user.save();
 
