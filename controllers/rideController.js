@@ -188,7 +188,7 @@ exports.arriveAtDestination = asyncHandler(async (req, res, next) => {
 // @route   POST /api/v1/driver/rides/:rideId/complete
 // @access  Private (Driver only)
 exports.completeRide = asyncHandler(async (req, res, next) => {
-  const { amountPaid } = req.body;
+  const { amountPaid, addChangeToWallet } = req.body;
   const ride = await Ride.findById(req.params.rideId)
     .populate("driver", "fullName phone profileImg")
     .populate("passenger", "fullName phone profileImg");
@@ -210,14 +210,11 @@ exports.completeRide = asyncHandler(async (req, res, next) => {
   ride.paymentStatus = ride.paymentMethod === "cash" ? "paid" : "pending";
   
   // Handle Cash Payment Change
-  if (ride.paymentMethod === "cash" && amountPaid && amountPaid > ride.finalFare) {
+  if (ride.paymentMethod === "cash" && amountPaid && amountPaid > ride.finalFare && addChangeToWallet) {
     const change = amountPaid - ride.finalFare;
-    const { topUpWallet, deductFromWallet } = require("./walletController");
+    const { deductFromWallet } = require("./walletController");
     
     // Add change to passenger wallet
-    // We manually update wallet instead of calling topUpWallet to avoid creating a "topup" transaction type if we want specific type
-    // But reusing topUpWallet logic is safer, just need to make sure we can customize description or use internal function
-    // Let's use internal logic here for custom transaction type
     const Wallet = require("../models/walletModel");
     let passengerWallet = await Wallet.findOne({ user: ride.passenger._id });
     if (!passengerWallet) {
@@ -235,10 +232,8 @@ exports.completeRide = asyncHandler(async (req, res, next) => {
     });
     await passengerWallet.save();
 
-    // Deduct change from driver wallet (since he kept the cash but owes this part to passenger via app)
-    // Actually, driver took full cash. He owes the app the commission + the change he didn't give back.
-    // So we deduct 'change' from his wallet.
-    await deductFromWallet(req.user._id, change, ride._id, `Change added to passenger wallet`);
+    // Deduct change from driver wallet (allow overdraft)
+    await deductFromWallet(req.user._id, change, ride._id, `Change added to passenger wallet`, true);
   }
 
   // Deduct Commission
@@ -248,6 +243,8 @@ exports.completeRide = asyncHandler(async (req, res, next) => {
   const commissionAmount = (ride.finalFare * commissionRate) / 100;
 
   const { deductFromWallet } = require("./walletController");
+  // Deduct commission from driver wallet (allow overdraft)
+  await deductFromWallet(req.user._id, commissionAmount, ride._id, `Commission for ride ${ride._id}`, true);
   try {
     await deductFromWallet(req.user._id, commissionAmount, ride._id, `App commission (${commissionRate}%)`);
   } catch (err) {

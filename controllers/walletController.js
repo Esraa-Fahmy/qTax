@@ -96,10 +96,19 @@ exports.topUpWallet = asyncHandler(async (req, res, next) => {
 
 // @desc    Deduct from wallet (internal use - for ride payments)
 // @route   Internal function
-exports.deductFromWallet = async (userId, amount, rideId, description) => {
-  const wallet = await Wallet.findOne({ user: userId });
+exports.deductFromWallet = async (userId, amount, rideId, description, allowOverdraft = false) => {
+  let wallet = await Wallet.findOne({ user: userId });
 
-  if (!wallet || wallet.balance < amount) {
+  // Create wallet if doesn't exist (needed for drivers who might not have one yet)
+  if (!wallet && allowOverdraft) {
+    wallet = await Wallet.create({ user: userId, balance: 0 });
+  }
+
+  if (!wallet) {
+    throw new Error("Wallet not found");
+  }
+
+  if (!allowOverdraft && wallet.balance < amount) {
     throw new Error("Insufficient wallet balance");
   }
 
