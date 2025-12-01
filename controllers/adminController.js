@@ -98,11 +98,7 @@ exports.getAllUsers = asyncHandler(async (req, res, next) => {
   const skip = (page - 1) * limit;
 
   const [users, total] = await Promise.all([
-    User.find(filter)
-      .populate("driverProfile")
-      .skip(skip)
-      .limit(limit)
-      .select("-password"),
+    User.find(filter).select("-password").skip(skip).limit(parseInt(limit)),
     User.countDocuments(filter),
   ]);
 
@@ -110,19 +106,14 @@ exports.getAllUsers = asyncHandler(async (req, res, next) => {
     status: "success",
     results: users.length,
     total,
+    currentPage: parseInt(page),
     totalPages: Math.ceil(total / limit),
-    currentPage: +page,
     data: users,
   });
 });
 
-
-
 exports.getUserById = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.params.id)
-    .populate("driverProfile")
-    .select("-password");
-
+  const user = await User.findById(req.params.id).select("-password");
   if (!user) return next(new ApiError("User not found", 404));
 
   res.status(200).json({
@@ -421,3 +412,171 @@ exports.getAllWalletTransactions = asyncHandler(async (req, res, next) => {
     data: wallets,
   });
 });
+
+// ============================================
+// Complaints Management
+// ============================================
+
+// @desc    Get all complaints with filters
+// @route   GET /api/v1/admin/complaints
+// @access  Private (Admin only)
+exports.getAllComplaints = asyncHandler(async (req, res) => {
+  const { status, userType, page = 1, limit = 20, startDate, endDate } = req.query;
+  
+  const filter = {};
+  if (status) filter.status = status;
+  
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = new Date(startDate);
+    if (endDate) filter.createdAt.$lte = new Date(endDate);
+  }
+  
+  const skip = (page - 1) * limit;
+  
+  const Complaint = require("../models/complaintModel");
+  
+  let query = Complaint.find(filter)
+    .populate("user", "fullName phone email role profileImg")
+    .populate("ride", "pickupLocation dropoffLocation fare status")
+    .populate("resolvedBy", "fullName email")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(parseInt(limit));
+  
+  const [complaints, total] = await Promise.all([
+    query,
+    Complaint.countDocuments(filter)
+  ]);
+  
+  res.status(200).json({
+    status: "success",
+    results: complaints.length,
+    total,
+    currentPage: parseInt(page),
+    totalPages: Math.ceil(total / limit),
+    data: complaints,
+  });
+});
+
+// @desc    Get complaint statistics
+// @route   GET /api/v1/admin/complaints/stats
+// @access  Private (Admin only)
+exports.getComplaintStats = asyncHandler(async (req, res) => {
+  const Complaint = require("../models/complaintModel");
+  
+  const [total, byStatus] = await Promise.all([
+    Complaint.countDocuments(),
+    Complaint.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 }
+        }
+      }
+    ])
+  ]);
+  
+  const stats = {
+    total,
+    pending: 0,
+    in_progress: 0,
+    resolved: 0,
+    rejected: 0
+  };
+  
+  byStatus.forEach(item => {
+    stats[item._id] = item.count;
+  });
+  
+  res.status(200).json({
+    status: "success",
+    data: stats,
+  });
+});
+
+// @desc    Get complaint by ID
+// @route   GET /api/v1/admin/complaints/:id
+// @access  Private (Admin only)
+exports.getComplaintById = asyncHandler(async (req, res, next) => {
+  const Complaint = require("../models/complaintModel");
+  
+  const complaint = await Complaint.findById(req.params.id)
+    .populate("user", "fullName phone email role profileImg")
+    .populate("ride", "pickupLocation dropoffLocation fare status driver passenger")
+    .populate("resolvedBy", "fullName email");
+  
+  if (!complaint) {
+    return next(new ApiError("Complaint not found", 404));
+  }
+  
+  res.status(200).json({
+    status: "success",
+    data: complaint,
+  });
+});
+
+// @desc    Reply to complaint
+// @route   POST /api/v1/admin/complaints/:id/reply
+// @access  Private (Admin only)
+exports.replyToComplaint = asyncHandler(async (req, res, next) => {
+  const { reply } = req.body;
+  
+  if (!reply) {
+    return next(new ApiError("Reply is required", 400));
+  }
+  
+  const Complaint = require("../models/complaintModel");
+  
+  const complaint = await Complaint.findById(req.params.id);
+  
+  if (!complaint) {
+    return next(new ApiError("Complaint not found", 404));
+  }
+  
+  complaint.adminReply = reply;
+  complaint.status = "in_progress";
+  await complaint.save();
+  
+  res.status(200).json({
+    status: "success",
+    message: "Reply sent successfully",
+    data: complaint,
+  });
+});
+
+// @desc    Update complaint status
+// @route   PUT /api/v1/admin/complaints/:id/status
+// @access  Private (Admin only)
+exports.updateComplaintStatus = asyncHandler(async (req, res, next) => {
+  const { status } = req.body;
+  
+  if (!status || !["pending", "in_progress", "resolved", "rejected"].includes(status)) {
+    return next(new ApiError("Invalid status", 400));
+  }
+  
+  const Complaint = require("../models/complaintModel");
+  
+  const complaint = await Complaint.findById(req.params.id);
+  
+  if (!complaint) {
+    return next(new ApiError("Complaint not found", 404));
+  }
+  
+  complaint.status = status;
+  
+  if (status === "resolved" || status === "rejected") {
+    complaint.resolvedBy = req.user._id;
+    complaint.resolvedAt = new Date();
+  }
+  
+  await complaint.save();
+  
+  res.status(200).json({
+    status: "success",
+    message: "Complaint status updated",
+    data: complaint,
+  });
+});
+
+module.exports = exports;

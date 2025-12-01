@@ -221,13 +221,14 @@ exports.completeRide = asyncHandler(async (req, res, next) => {
       passengerWallet = await Wallet.create({ user: ride.passenger._id, balance: 0 });
     }
     
+    const balanceBefore = passengerWallet.balance; // Save balance BEFORE update
     passengerWallet.balance += change;
     passengerWallet.transactions.push({
       type: "refund", // or 'change_deposit'
       amount: change,
       description: `Change from ride ${ride._id}`,
       rideId: ride._id,
-      balanceBefore: passengerWallet.balance - change,
+      balanceBefore: balanceBefore,
       balanceAfter: passengerWallet.balance
     });
     await passengerWallet.save();

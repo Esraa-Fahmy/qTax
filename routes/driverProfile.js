@@ -30,7 +30,7 @@ const {
   getDashboard,
 } = require("../controllers/driverStatusController");
 
-const { getWallet, getTransactions } = require("../controllers/walletController");
+const { getWallet, getTransactions, topUpWallet } = require("../controllers/walletController");
 const { createComplaint, getMyComplaints } = require("../controllers/complaintController");
 
 const { protect, allowedTo } = require("../midlewares/roleMiddleware");
@@ -120,6 +120,7 @@ router.post("/rides/:rideId/rate", requireActive, ratePassenger);
 
 router.get("/wallet", requireActive, getWallet);
 router.get("/wallet/transactions", requireActive, getTransactions);
+router.post("/wallet/topup", requireActive, topUpWallet);
 
 // ============================================
 // Complaints Routes (require active status)
