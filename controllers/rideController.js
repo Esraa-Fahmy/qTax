@@ -89,7 +89,7 @@ exports.acceptRide = asyncHandler(async (req, res, next) => {
   const duration = estimateDuration(distance);
   ride.distance = distance;
   ride.duration = duration;
-  ride.fare = calculateFare(distance, duration);
+  ride.fare = await calculateFare(distance, duration);
 
   await ride.save();
 
