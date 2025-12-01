@@ -90,6 +90,41 @@ const rideSchema = new mongoose.Schema(
     },
     finalFare: Number, // After voucher and wallet deduction
     
+    // Scheduled Ride
+    isScheduled: {
+      type: Boolean,
+      default: false,
+    },
+    scheduledTime: Date, // When the ride should start
+    
+    // Round Trip
+    isRoundTrip: {
+      type: Boolean,
+      default: false,
+    },
+    returnRideId: {
+      type: mongoose.Schema.ObjectId,
+      ref: "Ride",
+    },
+    
+    // Rating Tags
+    driverRatingTags: [String], // e.g., ["Great Service", "Clean Car"]
+    passengerRatingTags: [String],
+    
+    // Structured Cancel Reason
+    cancellationReasonCode: {
+      type: String,
+      enum: [
+        "driver_late",
+        "changed_mind",
+        "wrong_pickup",
+        "found_another_ride",
+        "passenger_no_show",
+        "emergency",
+        "other"
+      ],
+    },
+    
     acceptedAt: Date,
     startedAt: Date,
     arrivedAt: Date,

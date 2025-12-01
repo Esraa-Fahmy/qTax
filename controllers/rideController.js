@@ -63,6 +63,16 @@ exports.acceptRide = asyncHandler(async (req, res, next) => {
     return next(new ApiError("This ride has already been accepted", 400));
   }
 
+  // Check if driver already has an active ride
+  const activeDriverRide = await Ride.findOne({
+    driver: req.user._id,
+    status: { $in: ["accepted", "started", "arrived"] },
+  });
+
+  if (activeDriverRide) {
+    return next(new ApiError("You already have an active ride. Please complete it first.", 400));
+  }
+
   // Assign driver and update status
   ride.driver = req.user._id;
   ride.status = "accepted";
@@ -178,6 +188,7 @@ exports.arriveAtDestination = asyncHandler(async (req, res, next) => {
 // @route   POST /api/v1/driver/rides/:rideId/complete
 // @access  Private (Driver only)
 exports.completeRide = asyncHandler(async (req, res, next) => {
+  const { amountPaid } = req.body;
   const ride = await Ride.findById(req.params.rideId)
     .populate("driver", "fullName phone profileImg")
     .populate("passenger", "fullName phone profileImg");
@@ -197,6 +208,53 @@ exports.completeRide = asyncHandler(async (req, res, next) => {
   ride.status = "completed";
   ride.completedAt = new Date();
   ride.paymentStatus = ride.paymentMethod === "cash" ? "paid" : "pending";
+  
+  // Handle Cash Payment Change
+  if (ride.paymentMethod === "cash" && amountPaid && amountPaid > ride.finalFare) {
+    const change = amountPaid - ride.finalFare;
+    const { topUpWallet, deductFromWallet } = require("./walletController");
+    
+    // Add change to passenger wallet
+    // We manually update wallet instead of calling topUpWallet to avoid creating a "topup" transaction type if we want specific type
+    // But reusing topUpWallet logic is safer, just need to make sure we can customize description or use internal function
+    // Let's use internal logic here for custom transaction type
+    const Wallet = require("../models/walletModel");
+    let passengerWallet = await Wallet.findOne({ user: ride.passenger._id });
+    if (!passengerWallet) {
+      passengerWallet = await Wallet.create({ user: ride.passenger._id, balance: 0 });
+    }
+    
+    passengerWallet.balance += change;
+    passengerWallet.transactions.push({
+      type: "refund", // or 'change_deposit'
+      amount: change,
+      description: `Change from ride ${ride._id}`,
+      rideId: ride._id,
+      balanceBefore: passengerWallet.balance - change,
+      balanceAfter: passengerWallet.balance
+    });
+    await passengerWallet.save();
+
+    // Deduct change from driver wallet (since he kept the cash but owes this part to passenger via app)
+    // Actually, driver took full cash. He owes the app the commission + the change he didn't give back.
+    // So we deduct 'change' from his wallet.
+    await deductFromWallet(req.user._id, change, ride._id, `Change added to passenger wallet`);
+  }
+
+  // Deduct Commission
+  const Settings = require("../models/settingsModel");
+  const settings = await Settings.findOne();
+  const commissionRate = settings ? settings.appCommission : 10; // Default 10%
+  const commissionAmount = (ride.finalFare * commissionRate) / 100;
+
+  const { deductFromWallet } = require("./walletController");
+  try {
+    await deductFromWallet(req.user._id, commissionAmount, ride._id, `App commission (${commissionRate}%)`);
+  } catch (err) {
+    console.error("Failed to deduct commission:", err.message);
+    // We might want to mark driver as "in debt" or block him if balance is too low
+  }
+
   await ride.save();
 
   // Update driver earnings and stats
@@ -205,6 +263,10 @@ exports.completeRide = asyncHandler(async (req, res, next) => {
   driver.earnings.thisWeek += ride.fare;
   driver.earnings.total += ride.fare;
   driver.totalRides += 1;
+  
+  // Award points (e.g., 10 points per ride)
+  driver.points = (driver.points || 0) + 10;
+  
   await driver.save();
 
   // Emit socket event
@@ -239,6 +301,33 @@ exports.cancelRide = asyncHandler(async (req, res, next) => {
 
   if (ride.status === "completed" || ride.status === "cancelled") {
     return next(new ApiError("Cannot cancel this ride", 400));
+  }
+
+  // Check cancellation count for today
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  
+  const todayCancellations = await Ride.countDocuments({
+    driver: req.user._id,
+    status: "cancelled",
+    cancelledBy: "driver",
+    cancelledAt: { $gte: startOfDay },
+  });
+
+  // Apply penalty if it's the 3rd cancellation (count is 2 before this one)
+  if (todayCancellations >= 2) {
+    const { deductFromWallet } = require("./walletController");
+    try {
+      await deductFromWallet(
+        req.user._id, 
+        1000, 
+        ride._id, 
+        "Penalty for 3rd cancellation today"
+      );
+    } catch (err) {
+      // If wallet deduction fails (e.g. insufficient funds), we still cancel but maybe log it or debt
+      console.error("Failed to deduct penalty:", err.message);
+    }
   }
 
   ride.status = "cancelled";

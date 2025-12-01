@@ -46,6 +46,10 @@ const server = http.createServer(app);
 const io = initSocket(server);
 app.set("io", io); // Make io accessible in controllers 
 
+// Initialize scheduled rides cron job
+const { initScheduledRidesJob } = require("./utils/scheduledRidesJob");
+initScheduledRidesJob(io);
+
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

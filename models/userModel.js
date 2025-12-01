@@ -65,6 +65,17 @@ select: false
   autoAcceptRequests: { type: Boolean, default: false },
   pickupRadius: { type: Number, default: 5 }, // in km
   fcmToken: String, // For push notifications
+  
+  // Rewards
+  points: { type: Number, default: 0 },
+
+  // Destination Filter (Driver wants rides towards this location)
+  destinationFilter: {
+    isActive: { type: Boolean, default: false },
+    latitude: Number,
+    longitude: Number,
+    address: String,
+  },
 
   // Passenger-specific fields
   savedAddresses: [

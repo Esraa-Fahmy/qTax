@@ -31,5 +31,24 @@ router.delete("/vouchers/:id", deleteVoucher);
 // Wallet management routes
 router.get("/wallets", getAllWalletTransactions);
 
+// Settings management routes
+const { getSettings, updateSettings, createSettings, deleteSettings } = require("../controllers/settingsController");
+router.post("/settings", createSettings);
+router.get("/settings", getSettings);
+router.put("/settings", updateSettings);
+router.delete("/settings", deleteSettings);
+
+// City management routes
+const { createCity, getAllCities, getCity, updateCity, deleteCity } = require("../controllers/cityController");
+router.post("/cities", createCity);
+router.get("/cities", getAllCities);
+router.get("/cities/:id", getCity);
+router.put("/cities/:id", updateCity);
+router.delete("/cities/:id", deleteCity);
+
+// Complaint management routes
+const { getAllComplaints, updateComplaint } = require("../controllers/complaintController");
+router.get("/complaints", getAllComplaints);
+router.put("/complaints/:id", updateComplaint);
 
 module.exports = router;

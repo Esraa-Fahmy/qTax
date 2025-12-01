@@ -157,6 +157,15 @@ exports.updateSettings = asyncHandler(async (req, res, next) => {
     driver.fcmToken = fcmToken;
   }
 
+  // Handle Destination Filter
+  if (req.body.destinationFilter) {
+    const { isActive, latitude, longitude, address } = req.body.destinationFilter;
+    if (isActive !== undefined) driver.destinationFilter.isActive = isActive;
+    if (latitude) driver.destinationFilter.latitude = latitude;
+    if (longitude) driver.destinationFilter.longitude = longitude;
+    if (address) driver.destinationFilter.address = address;
+  }
+
   await driver.save();
 
   res.status(200).json({

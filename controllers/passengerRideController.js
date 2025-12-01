@@ -24,12 +24,25 @@ exports.requestRide = asyncHandler(async (req, res, next) => {
     paymentMethod = "cash",
     voucherCode,
     useWallet = false,
+    isScheduled = false,
+    scheduledTime,
+    isRoundTrip = false,
   } = req.body;
 
   // Validate required fields
   if (!pickupAddress || !pickupLatitude || !pickupLongitude || 
       !dropoffAddress || !dropoffLatitude || !dropoffLongitude) {
     return next(new ApiError("All location details are required", 400));
+  }
+
+  // Check if passenger already has an active ride
+  const activeRide = await Ride.findOne({
+    passenger: req.user._id,
+    status: { $in: ["pending", "accepted", "started", "arrived"] },
+  });
+
+  if (activeRide) {
+    return next(new ApiError("You already have an active ride", 400));
   }
 
   // Calculate total distance (including stops)
@@ -62,7 +75,12 @@ exports.requestRide = asyncHandler(async (req, res, next) => {
   totalDistance += finalSegment;
 
   const duration = estimateDuration(totalDistance);
-  let baseFare = calculateFare(totalDistance, duration, vehicleType);
+  let baseFare = await calculateFare(
+    totalDistance, 
+    duration, 
+    vehicleType, 
+    { latitude: pickupLatitude, longitude: pickupLongitude }
+  );
 
   // Apply voucher if provided
   let voucherDiscount = 0;
@@ -141,49 +159,56 @@ exports.requestRide = asyncHandler(async (req, res, next) => {
     distance: totalDistance,
     duration,
     fare: baseFare,
+    paymentMethod,
     voucherCode: voucherCode?.toUpperCase(),
     voucherDiscount,
     walletAmountUsed,
     finalFare,
-    paymentMethod,
+    isScheduled,
+    scheduledTime: isScheduled ? scheduledTime : null,
+    isRoundTrip,
     status: "pending",
   });
 
-  // Find nearby online drivers
-  const onlineDrivers = await User.find({
-    role: "driver",
-    isOnline: true,
-    "currentLocation.latitude": { $exists: true },
-  });
 
-  // Filter drivers within radius and emit to them
-  const io = req.app.get("io");
-  if (io) {
-    onlineDrivers.forEach((driver) => {
-      if (
-        driver.currentLocation &&
-        isWithinRadius(
-          driver.currentLocation,
-          { latitude: pickupLatitude, longitude: pickupLongitude },
-          driver.pickupRadius
-        )
-      ) {
-        io.to(`user_${driver._id}`).emit("ride:new", {
-          rideId: ride._id,
-          pickup: ride.pickupLocation,
-          dropoff: ride.dropoffLocation,
-          stops: ride.stops,
-          vehicleType: ride.vehicleType,
-          fare: ride.finalFare,
-          distance: ride.distance,
-          passenger: {
-            id: req.user._id,
-            name: req.user.fullName,
-            rating: req.user.rating,
-          },
-        });
-      }
+  // Find nearby online drivers (only for non-scheduled rides)
+  if (!isScheduled) {
+    const onlineDrivers = await User.find({
+      role: "driver",
+      isOnline: true,
+      status: "active",
+      "currentLocation.latitude": { $exists: true },
     });
+
+    // Filter drivers within radius and emit to them
+    const io = req.app.get("io");
+    if (io) {
+      onlineDrivers.forEach((driver) => {
+        if (
+          driver.currentLocation &&
+          isWithinRadius(
+            driver.currentLocation,
+            { latitude: pickupLatitude, longitude: pickupLongitude },
+            driver.pickupRadius
+          )
+        ) {
+          io.to(`user_${driver._id}`).emit("ride:new", {
+            rideId: ride._id,
+            pickup: ride.pickupLocation,
+            dropoff: ride.dropoffLocation,
+            stops: ride.stops,
+            vehicleType: ride.vehicleType,
+            fare: ride.finalFare,
+            distance: ride.distance,
+            passenger: {
+              id: req.user._id,
+              name: req.user.fullName,
+              rating: req.user.rating,
+            },
+          });
+        }
+      });
+    }
   }
 
   res.status(201).json({
@@ -438,5 +463,115 @@ exports.shareRideInfo = asyncHandler(async (req, res, next) => {
     status: "success",
     message: "Ride info ready to share",
     data: shareInfo,
+  });
+});
+
+// @desc    Request a ride again (from history)
+// @route   POST /api/v1/passenger/rides/:rideId/request-again
+// @access  Private (Passenger only)
+exports.requestRideAgain = asyncHandler(async (req, res, next) => {
+  // Find the original ride
+  const originalRide = await Ride.findById(req.params.rideId);
+
+  if (!originalRide) {
+    return next(new ApiError("Ride not found", 404));
+  }
+
+  // Verify the passenger owns this ride
+  if (originalRide.passenger.toString() !== req.user._id.toString()) {
+    return next(new ApiError("You are not authorized to request this ride again", 403));
+  }
+
+  // Only allow requesting completed or cancelled rides again
+  if (!["completed", "cancelled"].includes(originalRide.status)) {
+    return next(new ApiError("Can only request completed or cancelled rides again", 400));
+  }
+
+  // Check if passenger already has an active ride
+  const activeRide = await Ride.findOne({
+    passenger: req.user._id,
+    status: { $in: ["pending", "accepted", "started", "arrived"] },
+  });
+
+  if (activeRide) {
+    return next(new ApiError("You already have an active ride", 400));
+  }
+
+  // Calculate fare for the new ride
+  const totalDistance = originalRide.distance;
+  const duration = originalRide.duration;
+  let baseFare = await calculateFare(
+    totalDistance,
+    duration,
+    originalRide.vehicleType,
+    originalRide.pickupLocation.coordinates
+  );
+
+  // Create new ride with same details
+  const newRide = await Ride.create({
+    passenger: req.user._id,
+    pickupLocation: originalRide.pickupLocation,
+    dropoffLocation: originalRide.dropoffLocation,
+    stops: originalRide.stops,
+    vehicleType: originalRide.vehicleType,
+    distance: totalDistance,
+    duration,
+    fare: baseFare,
+    paymentMethod: originalRide.paymentMethod,
+    voucherCode: null, // No voucher for repeated rides
+    voucherDiscount: 0,
+    walletAmountUsed: 0,
+    finalFare: baseFare,
+    isScheduled: false, // New ride is immediate, not scheduled
+    scheduledTime: null,
+    isRoundTrip: false,
+    status: "pending",
+  });
+
+  // Find nearby online drivers
+  const onlineDrivers = await User.find({
+    role: "driver",
+    isOnline: true,
+    status: "active",
+    "currentLocation.latitude": { $exists: true },
+  });
+
+  // Notify nearby drivers
+  const io = req.app.get("io");
+  if (io) {
+    onlineDrivers.forEach((driver) => {
+      if (
+        driver.currentLocation &&
+        isWithinRadius(
+          driver.currentLocation,
+          newRide.pickupLocation.coordinates,
+          driver.pickupRadius
+        )
+      ) {
+        io.to(`user_${driver._id}`).emit("ride:new", {
+          rideId: newRide._id,
+          pickup: newRide.pickupLocation,
+          dropoff: newRide.dropoffLocation,
+          stops: newRide.stops,
+          vehicleType: newRide.vehicleType,
+          fare: newRide.finalFare,
+          distance: newRide.distance,
+          passenger: {
+            id: req.user._id,
+            name: req.user.fullName,
+            rating: req.user.rating,
+          },
+        });
+      }
+    });
+  }
+
+  res.status(201).json({
+    status: "success",
+    message: "Ride requested again successfully. Looking for nearby drivers...",
+    data: {
+      ride: newRide,
+      originalRideId: originalRide._id,
+    },
   });
 });

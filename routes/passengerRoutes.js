@@ -10,6 +10,7 @@ const {
   getRideHistory,
   getNearbyDrivers,
   shareRideInfo,
+  requestRideAgain,
 } = require("../controllers/passengerRideController");
 
 // Wallet controllers
@@ -52,6 +53,7 @@ router.post("/rides/request", requestRide);
 router.post("/rides/:rideId/cancel", cancelRide);
 router.post("/rides/:rideId/rate", rateDriver);
 router.post("/rides/:rideId/share", shareRideInfo);
+router.post("/rides/:rideId/request-again", requestRideAgain);
 router.get("/rides/active", getActiveRide);
 router.get("/rides/history", getRideHistory);
 router.get("/drivers/nearby", getNearbyDrivers);
@@ -77,5 +79,18 @@ router.get("/addresses", getAddresses);
 router.get("/addresses/:id", getAddressById);
 router.put("/addresses/:id", updateAddress);
 router.delete("/addresses/:id", deleteAddress);
+
+// Complaint routes
+const { createComplaint, getMyComplaints } = require("../controllers/complaintController");
+router.post("/complaints", createComplaint);
+router.get("/complaints/my", getMyComplaints);
+
+// Saved Rides routes
+const { saveRide, getSavedRides, getSavedRide, updateSavedRide, deleteSavedRide } = require("../controllers/savedRideController");
+router.post("/saved-rides", saveRide);
+router.get("/saved-rides", getSavedRides);
+router.get("/saved-rides/:id", getSavedRide);
+router.put("/saved-rides/:id", updateSavedRide);
+router.delete("/saved-rides/:id", deleteSavedRide);
 
 module.exports = router;

@@ -30,6 +30,9 @@ const {
   getDashboard,
 } = require("../controllers/driverStatusController");
 
+const { getWallet, getTransactions } = require("../controllers/walletController");
+const { createComplaint, getMyComplaints } = require("../controllers/complaintController");
+
 const { protect, allowedTo } = require("../midlewares/roleMiddleware");
 const { uploadSingleImage, uploadMixOfImages } = require("../midlewares/uploadImageMiddleWare");
 
@@ -110,5 +113,19 @@ router.post("/rides/:rideId/arrive", requireActive, arriveAtDestination);
 router.post("/rides/:rideId/complete", requireActive, completeRide);
 router.post("/rides/:rideId/cancel", requireActive, cancelRide);
 router.post("/rides/:rideId/rate", requireActive, ratePassenger);
+
+// ============================================
+// Wallet Routes (require active status)
+// ============================================
+
+router.get("/wallet", requireActive, getWallet);
+router.get("/wallet/transactions", requireActive, getTransactions);
+
+// ============================================
+// Complaints Routes (require active status)
+// ============================================
+
+router.post("/complaints", requireActive, createComplaint);
+router.get("/complaints/my", requireActive, getMyComplaints);
 
 module.exports = router;
