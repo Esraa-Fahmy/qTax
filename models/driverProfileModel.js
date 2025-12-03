@@ -23,6 +23,11 @@ const driverProfileSchema = new mongoose.Schema(
   type: [String],
   default: [],
 },
+    isProfileComplete: {
+      type: Boolean,
+      default: false,
+    },
+    profileCompletionCheckedAt: Date,
 
     rejectionReason: String,
   },

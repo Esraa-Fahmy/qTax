@@ -230,7 +230,24 @@ exports.requestRide = asyncHandler(async (req, res, next) => {
 // @route   POST /api/v1/passenger/rides/:rideId/cancel
 // @access  Private (Passenger only)
 exports.cancelRide = asyncHandler(async (req, res, next) => {
-  const { reason } = req.body;
+  const { reasonId } = req.body;
+  
+  if (!reasonId) {
+    return next(new ApiError("Cancellation reason is required", 400));
+  }
+
+  // Validate cancellation reason
+  const CancellationReason = require("../models/cancellationReasonModel");
+  const cancellationReason = await CancellationReason.findOne({
+    _id: reasonId,
+    userType: "passenger",
+    isActive: true,
+  });
+
+  if (!cancellationReason) {
+    return next(new ApiError("Invalid cancellation reason", 400));
+  }
+
   const ride = await Ride.findById(req.params.rideId);
 
   if (!ride) {
@@ -258,18 +275,33 @@ exports.cancelRide = asyncHandler(async (req, res, next) => {
 
   ride.status = "cancelled";
   ride.cancelledBy = "passenger";
-  ride.cancellationReason = reason || "No reason provided";
+  ride.cancellationReasonId = reasonId;
+  ride.cancellationReason = cancellationReason.reason; // For backward compatibility
   ride.cancelledAt = new Date();
   await ride.save();
 
-  // Notify driver if assigned
+  // Send notification to driver if assigned
   if (ride.driver) {
+    const Notification = require("../models/notificationModel");
+    await Notification.create({
+      user: ride.driver,
+      title: "Ride Cancelled",
+      titleAr: "تم إلغاء الرحلة",
+      message: `Passenger cancelled the ride. Reason: ${cancellationReason.reason}`,
+      messageAr: `قام الراكب بإلغاء الرحلة. السبب: ${cancellationReason.reasonAr}`,
+      subtitle: `Ride #${ride._id.toString().slice(-6)}`,
+      subtitleAr: `رحلة #${ride._id.toString().slice(-6)}`,
+      type: "ride",
+      data: { rideId: ride._id },
+    });
+
     const io = req.app.get("io");
     if (io) {
       io.to(`user_${ride.driver}`).emit("ride:cancelled", {
         rideId: ride._id,
         cancelledBy: "passenger",
-        reason: ride.cancellationReason,
+        reason: cancellationReason.reason,
+        reasonAr: cancellationReason.reasonAr,
       });
     }
   }
@@ -339,7 +371,7 @@ exports.getActiveRide = asyncHandler(async (req, res, next) => {
   })
     .populate({
       path: "driver",
-      select: "fullName phone profileImg rating currentLocation driverProfile",
+      select: "fullName phone profileImg rating totalRatings currentLocation driverProfile",
       populate: {
         path: "driverProfile",
         select: "carPhotos",
@@ -351,6 +383,34 @@ exports.getActiveRide = asyncHandler(async (req, res, next) => {
     return res.status(200).json({
       status: "success",
       data: null,
+    });
+  }
+
+  // Enhance driver data with fallback photo
+  if (ride.driver) {
+    const driverData = {
+      _id: ride.driver._id,
+      fullName: ride.driver.fullName || null,
+      phone: ride.driver.phone || null,
+      profileImg: ride.driver.profileImg || null,
+      rating: ride.driver.rating || 0,
+      totalRatings: ride.driver.totalRatings || 0,
+      currentLocation: ride.driver.currentLocation || null,
+      vehicleType: ride.vehicleType,
+    };
+
+    // If no profile image, use first car photo as fallback
+    if (!driverData.profileImg && ride.driver.driverProfile && ride.driver.driverProfile.carPhotos && ride.driver.driverProfile.carPhotos.length > 0) {
+      driverData.profileImg = ride.driver.driverProfile.carPhotos[0];
+    }
+
+    // Create enhanced response
+    const enhancedRide = ride.toObject();
+    enhancedRide.driver = driverData;
+
+    return res.status(200).json({
+      status: "success",
+      data: enhancedRide,
     });
   }
 

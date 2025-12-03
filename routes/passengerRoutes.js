@@ -48,6 +48,18 @@ const router = express.Router();
 // Protect all routes and restrict to passengers (users)
 router.use(protect, allowedTo("user"));
 
+// Location routes
+const { checkLocationAvailability } = require("../controllers/locationController");
+router.post("/location/check", checkLocationAvailability);
+
+// Vehicle Types routes
+const { getAvailableVehicleTypes } = require("../controllers/vehicleTypeController");
+router.get("/vehicle-types", getAvailableVehicleTypes);
+
+// Cancellation Reasons routes
+const { getCancellationReasons } = require("../controllers/cancellationReasonController");
+router.get("/cancellation-reasons", getCancellationReasons);
+
 // Ride routes
 router.post("/rides/request", requestRide);
 router.post("/rides/:rideId/cancel", cancelRide);
@@ -69,8 +81,8 @@ router.get("/vouchers", getAvailableVouchers);
 
 // Notification routes
 router.get("/notifications", getNotifications);
-router.put("/notifications/:id/read", markAsRead);
-router.put("/notifications/read-all", markAllAsRead);
+router.put("/notifications/mark-read", markAsRead); // New unified endpoint
+router.put("/notifications/read-all", markAllAsRead); // Legacy endpoint
 router.delete("/notifications/:id", deleteNotification);
 
 // Saved addresses routes (passenger-only)

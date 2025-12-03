@@ -32,30 +32,47 @@ exports.getNotifications = asyncHandler(async (req, res, next) => {
   });
 });
 
-// @desc    Mark notification as read
-// @route   PUT /api/v1/passenger/notifications/:id/read
+// @desc    Mark notification(s) as read
+// @route   PUT /api/v1/passenger/notifications/mark-read
 // @access  Private
 exports.markAsRead = asyncHandler(async (req, res, next) => {
-  const notification = await Notification.findOne({
-    _id: req.params.id,
-    user: req.user._id,
-  });
+  const { notificationIds, markAll } = req.body;
 
-  if (!notification) {
-    return next(new ApiError("Notification not found", 404));
+  // Mark all notifications as read
+  if (markAll === true) {
+    const result = await Notification.updateMany(
+      { user: req.user._id, isRead: false },
+      { isRead: true }
+    );
+
+    return res.status(200).json({
+      status: "success",
+      message: "All notifications marked as read",
+      modifiedCount: result.modifiedCount,
+    });
   }
 
-  notification.isRead = true;
-  await notification.save();
+  // Mark specific notification(s) as read
+  if (!notificationIds || (Array.isArray(notificationIds) && notificationIds.length === 0)) {
+    return next(new ApiError("Please provide notification IDs or set markAll to true", 400));
+  }
+
+  // Handle single ID or array of IDs
+  const ids = Array.isArray(notificationIds) ? notificationIds : [notificationIds];
+
+  const result = await Notification.updateMany(
+    { _id: { $in: ids }, user: req.user._id },
+    { isRead: true }
+  );
 
   res.status(200).json({
     status: "success",
-    message: "Notification marked as read",
-    data: notification,
+    message: `${result.modifiedCount} notification(s) marked as read`,
+    modifiedCount: result.modifiedCount,
   });
 });
 
-// @desc    Mark all notifications as read
+// @desc    Mark all notifications as read (legacy endpoint)
 // @route   PUT /api/v1/passenger/notifications/read-all
 // @access  Private
 exports.markAllAsRead = asyncHandler(async (req, res, next) => {

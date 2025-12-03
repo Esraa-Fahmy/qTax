@@ -136,6 +136,13 @@ const {
   getRevenueChartData
 } = require("../controllers/statsController");
 
+const { distributeRewards } = require("../controllers/rewardController");
+const { 
+  getAllRequests, 
+  approveRequest, 
+  rejectRequest 
+} = require("../controllers/profileChangeRequestController");
+
 router.get("/stats/dashboard", getDashboardOverview);
 router.get("/stats/rides", getStatsRideStats);
 router.get("/stats/revenue", getRevenueAnalysis);
@@ -143,5 +150,53 @@ router.get("/stats/top-drivers", getTopDrivers);
 router.get("/stats/top-passengers", getTopPassengers);
 router.get("/stats/charts/rides", getRidesChartData);
 router.get("/stats/charts/revenue", getRevenueChartData);
+
+// ============================================
+// Rewards Management
+// ============================================
+router.post("/rewards/distribute", distributeRewards);
+
+// ============================================
+// Profile Change Requests Management
+// ============================================
+router.get("/profile-change-requests", getAllRequests);
+router.put("/profile-change-requests/:id/approve", approveRequest);
+router.put("/profile-change-requests/:id/reject", rejectRequest);
+
+// ============================================
+// Vehicle Types Management
+// ============================================
+const {
+  createVehicleType,
+  getAllVehicleTypesAdmin,
+  updateVehicleType,
+  deleteVehicleType,
+  toggleVehicleTypeStatus,
+} = require("../controllers/vehicleTypeController");
+
+const { uploadSingleImage } = require("../midlewares/uploadImageMiddleWare");
+
+router.post("/vehicle-types", uploadSingleImage("image"), createVehicleType);
+router.get("/vehicle-types", getAllVehicleTypesAdmin);
+router.put("/vehicle-types/:id", uploadSingleImage("image"), updateVehicleType);
+router.delete("/vehicle-types/:id", deleteVehicleType);
+router.put("/vehicle-types/:id/toggle-status", toggleVehicleTypeStatus);
+
+// ============================================
+// Cancellation Reasons Management
+// ============================================
+const {
+  createCancellationReason,
+  getAllCancellationReasonsAdmin,
+  updateCancellationReason,
+  deleteCancellationReason,
+  reorderCancellationReasons,
+} = require("../controllers/cancellationReasonController");
+
+router.post("/cancellation-reasons", createCancellationReason);
+router.get("/cancellation-reasons", getAllCancellationReasonsAdmin);
+router.put("/cancellation-reasons/:id", updateCancellationReason);
+router.delete("/cancellation-reasons/:id", deleteCancellationReason);
+router.put("/cancellation-reasons/reorder", reorderCancellationReasons);
 
 module.exports = router;

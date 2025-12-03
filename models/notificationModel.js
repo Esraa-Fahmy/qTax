@@ -11,9 +11,25 @@ const notificationSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    titleAr: {
+      type: String,
+      required: true,
+    },
     message: {
       type: String,
       required: true,
+    },
+    messageAr: {
+      type: String,
+      required: true,
+    },
+    subtitle: {
+      type: String,
+      default: null,
+    },
+    subtitleAr: {
+      type: String,
+      default: null,
     },
     type: {
       type: String,

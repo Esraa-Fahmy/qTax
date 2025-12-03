@@ -49,6 +49,13 @@ exports.getIncomingRides = asyncHandler(async (req, res, next) => {
 // @route   POST /api/v1/driver/rides/:rideId/accept
 // @access  Private (Driver only)
 exports.acceptRide = asyncHandler(async (req, res, next) => {
+  // Check driver profile completion
+  const driver = await User.findById(req.user._id).populate("driverProfile");
+  
+  if (!driver.fullName || !driver.email || !driver.profileImg) {
+    return next(new ApiError("Please complete your profile (name, email, photo) before accepting rides", 403));
+  }
+
   const ride = await Ride.findById(req.params.rideId);
 
   if (!ride) {
@@ -97,7 +104,21 @@ exports.acceptRide = asyncHandler(async (req, res, next) => {
   await ride.populate("driver", "fullName phone profileImg rating");
   await ride.populate("passenger", "fullName phone profileImg");
 
-  // TODO: Emit socket event to passenger
+  // Send notification to passenger
+  const Notification = require("../models/notificationModel");
+  await Notification.create({
+    user: ride.passenger._id,
+    title: "Driver Accepted Your Ride",
+    titleAr: "قبل السائق رحلتك",
+    message: `${driver.fullName} is on the way to pick you up`,
+    messageAr: `${driver.fullName} في الطريق لاستلامك`,
+    subtitle: `Ride #${ride._id.toString().slice(-6)}`,
+    subtitleAr: `رحلة #${ride._id.toString().slice(-6)}`,
+    type: "ride",
+    data: { rideId: ride._id, driverId: driver._id },
+  });
+
+  // Emit socket event to passenger
   const io = req.app.get("io");
   if (io) {
     io.to(`user_${ride.passenger._id}`).emit("ride:accepted", ride);
@@ -110,81 +131,6 @@ exports.acceptRide = asyncHandler(async (req, res, next) => {
   });
 });
 
-// @desc    Start ride
-// @route   POST /api/v1/driver/rides/:rideId/start
-// @access  Private (Driver only)
-exports.startRide = asyncHandler(async (req, res, next) => {
-  const ride = await Ride.findById(req.params.rideId)
-    .populate("driver", "fullName phone profileImg")
-    .populate("passenger", "fullName phone profileImg");
-
-  if (!ride) {
-    return next(new ApiError("Ride not found", 404));
-  }
-
-  if (ride.driver._id.toString() !== req.user._id.toString()) {
-    return next(new ApiError("You are not assigned to this ride", 403));
-  }
-
-  if (ride.status !== "accepted") {
-    return next(new ApiError("Ride must be accepted first", 400));
-  }
-
-  ride.status = "started";
-  ride.startedAt = new Date();
-  await ride.save();
-
-  // Emit socket event
-  const io = req.app.get("io");
-  if (io) {
-    io.to(`user_${ride.passenger._id}`).emit("ride:started", ride);
-  }
-
-  res.status(200).json({
-    status: "success",
-    message: "Ride started successfully",
-    data: ride,
-  });
-});
-
-// @desc    Mark arrived at destination
-// @route   POST /api/v1/driver/rides/:rideId/arrive
-// @access  Private (Driver only)
-exports.arriveAtDestination = asyncHandler(async (req, res, next) => {
-  const ride = await Ride.findById(req.params.rideId)
-    .populate("driver", "fullName phone profileImg")
-    .populate("passenger", "fullName phone profileImg");
-
-  if (!ride) {
-    return next(new ApiError("Ride not found", 404));
-  }
-
-  if (ride.driver._id.toString() !== req.user._id.toString()) {
-    return next(new ApiError("You are not assigned to this ride", 403));
-  }
-
-  if (ride.status !== "started") {
-    return next(new ApiError("Ride must be started first", 400));
-  }
-
-  ride.status = "arrived";
-  ride.arrivedAt = new Date();
-  await ride.save();
-
-  // Emit socket event
-  const io = req.app.get("io");
-  if (io) {
-    io.to(`user_${ride.passenger._id}`).emit("ride:arrived", ride);
-  }
-
-  res.status(200).json({
-    status: "success",
-    message: "Marked as arrived",
-    data: ride,
-  });
-});
-
-// @desc    Complete ride
 // @route   POST /api/v1/driver/rides/:rideId/complete
 // @access  Private (Driver only)
 exports.completeRide = asyncHandler(async (req, res, next) => {
@@ -267,6 +213,20 @@ exports.completeRide = asyncHandler(async (req, res, next) => {
   
   await driver.save();
 
+  // Send completion notification to passenger
+  const Notification = require("../models/notificationModel");
+  await Notification.create({
+    user: ride.passenger._id,
+    title: "Ride Completed",
+    titleAr: "اكتملت الرحلة",
+    message: `Your ride has been completed. Fare: ${ride.finalFare} IQD`,
+    messageAr: `اكتملت رحلتك. الأجرة: ${ride.finalFare} دينار عراقي`,
+    subtitle: `Ride #${ride._id.toString().slice(-6)}`,
+    subtitleAr: `رحلة #${ride._id.toString().slice(-6)}`,
+    type: "ride",
+    data: { rideId: ride._id },
+  });
+
   // Emit socket event
   const io = req.app.get("io");
   if (io) {
@@ -284,7 +244,24 @@ exports.completeRide = asyncHandler(async (req, res, next) => {
 // @route   POST /api/v1/driver/rides/:rideId/cancel
 // @access  Private (Driver only)
 exports.cancelRide = asyncHandler(async (req, res, next) => {
-  const { reason } = req.body;
+  const { reasonId } = req.body;
+  
+  if (!reasonId) {
+    return next(new ApiError("Cancellation reason is required", 400));
+  }
+
+  // Validate cancellation reason
+  const CancellationReason = require("../models/cancellationReasonModel");
+  const cancellationReason = await CancellationReason.findOne({
+    _id: reasonId,
+    userType: "driver",
+    isActive: true,
+  });
+
+  if (!cancellationReason) {
+    return next(new ApiError("Invalid cancellation reason", 400));
+  }
+
   const ride = await Ride.findById(req.params.rideId)
     .populate("driver", "fullName phone profileImg")
     .populate("passenger", "fullName phone profileImg");
@@ -313,6 +290,7 @@ exports.cancelRide = asyncHandler(async (req, res, next) => {
   });
 
   // Apply penalty if it's the 3rd cancellation (count is 2 before this one)
+  let penaltyApplied = false;
   if (todayCancellations >= 2) {
     const { deductFromWallet } = require("./walletController");
     try {
@@ -320,19 +298,35 @@ exports.cancelRide = asyncHandler(async (req, res, next) => {
         req.user._id, 
         1000, 
         ride._id, 
-        "Penalty for 3rd cancellation today"
+        "Penalty for 3rd ride cancellation today",
+        true // Allow overdraft
       );
+      penaltyApplied = true;
     } catch (err) {
-      // If wallet deduction fails (e.g. insufficient funds), we still cancel but maybe log it or debt
       console.error("Failed to deduct penalty:", err.message);
     }
   }
 
   ride.status = "cancelled";
   ride.cancelledBy = "driver";
-  ride.cancellationReason = reason || "No reason provided";
+  ride.cancellationReasonId = reasonId;
+  ride.cancellationReason = cancellationReason.reason; // For backward compatibility
   ride.cancelledAt = new Date();
   await ride.save();
+
+  // Send notification to passenger
+  const Notification = require("../models/notificationModel");
+  await Notification.create({
+    user: ride.passenger._id,
+    title: "Driver Cancelled Ride",
+    titleAr: "ألغى السائق الرحلة",
+    message: `Driver cancelled the ride. Reason: ${cancellationReason.reason}`,
+    messageAr: `ألغى السائق الرحلة. السبب: ${cancellationReason.reasonAr}`,
+    subtitle: `Ride #${ride._id.toString().slice(-6)}`,
+    subtitleAr: `رحلة #${ride._id.toString().slice(-6)}`,
+    type: "ride",
+    data: { rideId: ride._id },
+  });
 
   // Emit socket event
   const io = req.app.get("io");
@@ -340,14 +334,18 @@ exports.cancelRide = asyncHandler(async (req, res, next) => {
     io.to(`user_${ride.passenger._id}`).emit("ride:cancelled", {
       ride,
       cancelledBy: "driver",
-      reason: ride.cancellationReason,
+      reason: cancellationReason.reason,
+      reasonAr: cancellationReason.reasonAr,
     });
   }
 
   res.status(200).json({
     status: "success",
-    message: "Ride cancelled",
+    message: penaltyApplied 
+      ? "Ride cancelled. 1000 IQD penalty applied (3rd cancellation today)" 
+      : "Ride cancelled",
     data: ride,
+    penaltyApplied,
   });
 });
 
@@ -387,8 +385,8 @@ exports.getRideHistory = asyncHandler(async (req, res, next) => {
     driver: req.user._id,
     status: { $in: ["completed", "cancelled"] },
   })
-    .populate("passenger", "fullName phone profileImg rating")
-    .sort({ completedAt: -1, cancelledAt: -1 })
+    .populate("passenger", "fullName profileImg rating")
+    .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit);
 
@@ -400,9 +398,12 @@ exports.getRideHistory = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     results: rides.length,
-    total,
-    totalPages: Math.ceil(total / limit),
-    currentPage: page,
+    pagination: {
+      total,
+      pages: Math.ceil(total / limit),
+      page,
+      limit,
+    },
     data: rides,
   });
 });
@@ -452,5 +453,140 @@ exports.ratePassenger = asyncHandler(async (req, res, next) => {
     status: "success",
     message: "Rating submitted successfully",
     data: ride,
+  });
+});
+
+// @desc    Update meter distance (for rides without fixed destination)
+// @route   PUT /api/v1/driver/rides/:rideId/update-meter
+// @access  Private (Driver only)
+exports.updateMeterDistance = asyncHandler(async (req, res, next) => {
+  const { distance } = req.body;
+
+  if (!distance || distance <= 0) {
+    return next(new ApiError("Valid distance is required", 400));
+  }
+
+  const ride = await Ride.findById(req.params.rideId);
+
+  if (!ride) {
+    return next(new ApiError("Ride not found", 404));
+  }
+
+  if (ride.driver.toString() !== req.user._id.toString()) {
+    return next(new ApiError("You are not assigned to this ride", 403));
+  }
+
+  if (!ride.isMeterMode) {
+    return next(new ApiError("This ride is not in meter mode", 400));
+  }
+
+  if (ride.status !== "started") {
+    return next(new ApiError("Ride must be in progress to update meter", 400));
+  }
+
+  ride.meterDistance = distance;
+  await ride.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "Meter distance updated",
+    data: {
+      meterDistance: ride.meterDistance,
+    },
+  });
+});
+
+// @desc    Get upcoming nearby rides (while completing current ride)
+// @route   GET /api/v1/driver/rides/upcoming-nearby
+// @access  Private (Driver only)
+exports.getUpcomingNearbyRides = asyncHandler(async (req, res, next) => {
+  const { radius = 5 } = req.query; // Default 5km radius
+
+  // Check if driver has an active ride
+  const activeRide = await Ride.findOne({
+    driver: req.user._id,
+    status: { $in: ["started", "arrived"] },
+  });
+
+  if (!activeRide) {
+    return next(new ApiError("You don't have an active ride", 400));
+  }
+
+  // Get destination coordinates
+  const destinationCoords = activeRide.dropoffLocation.coordinates;
+
+  // Find pending rides near the destination
+  const pendingRides = await Ride.find({
+    status: "pending",
+    driver: null,
+  })
+    .populate("passenger", "fullName phone profileImg rating")
+    .sort({ createdAt: 1 })
+    .limit(10);
+
+  // Filter rides within radius of destination
+  const { isWithinRadius } = require("../utils/distanceCalculator");
+  const nearbyRides = pendingRides.filter((ride) =>
+    isWithinRadius(
+      destinationCoords,
+      ride.pickupLocation.coordinates,
+      +radius
+    )
+  );
+
+  res.status(200).json({
+    status: "success",
+    results: nearbyRides.length,
+    data: nearbyRides,
+  });
+});
+
+// @desc    Respond to safety check
+// @route   POST /api/v1/driver/rides/:rideId/safety-check
+// @access  Private (Driver only)
+exports.respondToSafetyCheck = asyncHandler(async (req, res, next) => {
+  const { response } = req.body; // "ok" or "emergency"
+
+  const ride = await Ride.findById(req.params.rideId);
+
+  if (!ride) {
+    return next(new ApiError("Ride not found", 404));
+  }
+
+  if (ride.driver.toString() !== req.user._id.toString()) {
+    return next(new ApiError("You are not assigned to this ride", 403));
+  }
+
+  if (!ride.hasRestStop) {
+    return next(new ApiError("This ride doesn't have a rest stop", 400));
+  }
+
+  ride.safetyCheckStatus.responded = true;
+  ride.safetyCheckStatus.responseTime = new Date();
+
+  if (response === "emergency") {
+    ride.safetyCheckStatus.emergencyTriggered = true;
+    
+    // Notify admin about emergency
+    const io = req.app.get("io");
+    if (io) {
+      io.to("admin_room").emit("emergency:alert", {
+        rideId: ride._id,
+        driver: req.user._id,
+        driverName: req.user.fullName,
+        location: ride.restStopLocation,
+        time: new Date(),
+      });
+    }
+  }
+
+  await ride.save();
+
+  res.status(200).json({
+    status: "success",
+    message: response === "emergency" 
+      ? "Emergency alert sent to admin" 
+      : "Safety check confirmed",
+    data: ride.safetyCheckStatus,
   });
 });

@@ -1,0 +1,842 @@
+# دليل API الجديد - تطبيق Qtax
+
+## نظرة عامة
+تم إضافة 7 ميزات رئيسية جديدة للتطبيق مع دعم كامل للغتين العربية والإنجليزية.
+
+---
+
+## 1️⃣ التحقق من توفر الموقع (Location Availability)
+
+### 📍 POST `/api/v1/passenger/location/check`
+**الوصف:** يتحقق الراكب من توفر التطبيق في موقعه الحالي
+
+**Headers:**
+```
+Authorization: Bearer <passenger_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "latitude": 33.3152,
+  "longitude": 44.3661
+}
+```
+
+**شرح الحقول:**
+- `latitude` (رقم، مطلوب): خط العرض للموقع
+- `longitude` (رقم، مطلوب): خط الطول للموقع
+
+**Response (متاح):**
+```json
+{
+  "status": "success",
+  "isAvailable": true,
+  "message": "Qtax is available in your location",
+  "messageAr": "تطبيق Qtax متاح في موقعك",
+  "city": {
+    "name": "Baghdad",
+    "nameAr": "بغداد"
+  }
+}
+```
+
+**Response (غير متاح):**
+```json
+{
+  "status": "success",
+  "isAvailable": false,
+  "message": "Qtax is not available here",
+  "messageAr": "تطبيق Qtax غير متاح في هذا الموقع",
+  "nearestCity": {
+    "name": "Baghdad",
+    "nameAr": "بغداد",
+    "distanceKm": 15.3
+  }
+}
+```
+
+---
+
+## 2️⃣ أنواع المركبات مع الأسعار (Vehicle Types with Pricing)
+
+### 🚗 GET `/api/v1/passenger/vehicle-types?distance=10&duration=20`
+**الوصف:** يحصل الراكب على جميع أنواع المركبات المتاحة مع الأسعار المحسوبة
+
+**Headers:**
+```
+Authorization: Bearer <passenger_token>
+```
+
+**Query Parameters:**
+- `distance` (رقم، مطلوب): المسافة بالكيلومتر
+- `duration` (رقم، مطلوب): الوقت المتوقع بالدقائق
+
+**Response:**
+```json
+{
+  "status": "success",
+  "results": 3,
+  "data": [
+    {
+      "_id": "vehicle_type_id_1",
+      "name": "economy",
+      "nameAr": "اقتصادي",
+      "description": "Standard comfortable ride",
+      "descriptionAr": "رحلة مريحة قياسية",
+      "passengerCapacity": {
+        "min": 1,
+        "max": 4
+      },
+      "image": "http://example.com/uploads/vehicle-types/economy.jpg",
+      "icon": "http://example.com/uploads/economy.png",
+      "features": [
+        {
+          "feature": "Air Conditioning",
+          "featureAr": "تكييف هواء"
+        }
+      ],
+      "estimatedFare": 5000,
+      "distance": 10,
+      "duration": 20,
+      "isSurgeActive": false
+    },
+    {
+      "_id": "vehicle_type_id_2",
+      "name": "comfort",
+      "nameAr": "مريح",
+      "description": "Premium comfort experience",
+      "descriptionAr": "تجربة راحة متميزة",
+      "passengerCapacity": {
+        "min": 1,
+        "max": 3
+      },
+      "image": "http://example.com/uploads/vehicle-types/comfort.jpg",
+      "estimatedFare": 6500,
+      "distance": 10,
+      "duration": 20,
+      "isSurgeActive": false
+    },
+    {
+      "_id": "vehicle_type_id_3",
+      "name": "premium",
+      "nameAr": "فاخر",
+      "description": "Luxury ride experience",
+      "descriptionAr": "تجربة رحلة فاخرة",
+      "passengerCapacity": {
+        "min": 1,
+        "max": 2
+      },
+      "image": "http://example.com/uploads/vehicle-types/premium.jpg",
+      "estimatedFare": 8000,
+      "distance": 10,
+      "duration": 20,
+      "isSurgeActive": false
+    }
+  ]
+}
+```
+
+**شرح الحقول:**
+- `image`: صورة نوع المركبة (URL كامل)
+- `estimatedFare`: السعر المتوقع بالدينار العراقي محسوب بناءً على المسافة والوقت
+- `passengerCapacity`: عدد الركاب (من - إلى)
+- `isSurgeActive`: هل التسعير في وقت الذروة نشط
+
+---
+
+## 3️⃣ تفاصيل الرحلة النشطة المحسّنة (Enhanced Active Ride)
+
+### 🚕 GET `/api/v1/passenger/rides/active`
+**الوصف:** يحصل الراكب على تفاصيل رحلته النشطة مع معلومات السائق الكاملة
+
+**Headers:**
+```
+Authorization: Bearer <passenger_token>
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "_id": "ride_id_123",
+    "passenger": {
+      "_id": "passenger_id",
+      "fullName": "أحمد محمد",
+      "phone": "+9647XXXXXXXX",
+      "profileImg": "http://example.com/uploads/users/passenger.jpg"
+    },
+    "driver": {
+      "_id": "driver_id",
+      "fullName": "علي حسن",
+      "phone": "+9647XXXXXXXX",
+      "profileImg": "http://example.com/uploads/drivers/car1.jpg",
+      "rating": 4.8,
+      "totalRatings": 156,
+      "currentLocation": {
+        "latitude": 33.3152,
+        "longitude": 44.3661,
+        "updatedAt": "2025-12-02T20:50:00.000Z"
+      },
+      "vehicleType": "economy"
+    },
+    "pickupLocation": {
+      "address": "شارع الرشيد، بغداد",
+      "coordinates": {
+        "latitude": 33.3152,
+        "longitude": 44.3661
+      }
+    },
+    "dropoffLocation": {
+      "address": "ساحة التحرير، بغداد",
+      "coordinates": {
+        "latitude": 33.3200,
+        "longitude": 44.3700
+      }
+    },
+    "status": "accepted",
+    "vehicleType": "economy",
+    "fare": 5000,
+    "finalFare": 4500,
+    "distance": 10,
+    "duration": 20,
+    "acceptedAt": "2025-12-02T20:45:00.000Z"
+  }
+}
+```
+
+**ملاحظات مهمة:**
+- إذا لم يكن للسائق صورة شخصية (`profileImg`)، يتم استخدام أول صورة من صور السيارة كبديل
+- إذا لم تكن هناك رحلة نشطة، يرجع `data: null`
+- جميع الحقول المفقودة ترجع بقيمة `null`
+
+---
+
+## 4️⃣ أسباب الإلغاء (Cancellation Reasons)
+
+### 📋 GET `/api/v1/passenger/cancellation-reasons`
+**الوصف:** يحصل الراكب على قائمة أسباب الإلغاء الخاصة به
+
+**Headers:**
+```
+Authorization: Bearer <passenger_token>
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "results": 5,
+  "data": [
+    {
+      "_id": "reason_id_1",
+      "reason": "Driver is late",
+      "reasonAr": "السائق متأخر",
+      "userType": "passenger",
+      "isActive": true,
+      "order": 1
+    },
+    {
+      "_id": "reason_id_2",
+      "reason": "Changed my mind",
+      "reasonAr": "غيرت رأيي",
+      "userType": "passenger",
+      "isActive": true,
+      "order": 2
+    },
+    {
+      "_id": "reason_id_3",
+      "reason": "Wrong pickup location",
+      "reasonAr": "موقع الاستلام خاطئ",
+      "userType": "passenger",
+      "isActive": true,
+      "order": 3
+    }
+  ]
+}
+```
+
+### 📋 GET `/api/v1/driver/cancellation-reasons`
+**الوصف:** يحصل السائق على قائمة أسباب الإلغاء الخاصة به
+
+**Headers:**
+```
+Authorization: Bearer <driver_token>
+```
+
+**Response:** نفس التنسيق ولكن مع `"userType": "driver"`
+
+### ❌ POST `/api/v1/passenger/rides/:rideId/cancel`
+**الوصف:** إلغاء الرحلة من قبل الراكب مع تحديد السبب
+
+**Headers:**
+```
+Authorization: Bearer <passenger_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "reasonId": "reason_id_1"
+}
+```
+
+**شرح الحقول:**
+- `reasonId` (نص، مطلوب): معرف سبب الإلغاء من قائمة الأسباب
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Ride cancelled successfully",
+  "data": {
+    "_id": "ride_id_123",
+    "status": "cancelled",
+    "cancelledBy": "passenger",
+    "cancellationReasonId": "reason_id_1",
+    "cancellationReason": "Driver is late",
+    "cancelledAt": "2025-12-02T20:50:00.000Z"
+  }
+}
+```
+
+**ملاحظة:** يتم إرسال إشعار للسائق تلقائياً
+
+### ❌ POST `/api/v1/driver/rides/:rideId/cancel`
+**الوصف:** إلغاء الرحلة من قبل السائق مع تحديد السبب
+
+**Headers:**
+```
+Authorization: Bearer <driver_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "reasonId": "driver_reason_id_1"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Ride cancelled. 1000 IQD penalty applied (3rd cancellation today)",
+  "penaltyApplied": true,
+  "data": {
+    "_id": "ride_id_123",
+    "status": "cancelled",
+    "cancelledBy": "driver",
+    "cancellationReasonId": "driver_reason_id_1",
+    "cancelledAt": "2025-12-02T20:50:00.000Z"
+  }
+}
+```
+
+**ملاحظة مهمة:** 
+- عند الإلغاء الثالث في نفس اليوم، يتم خصم 1000 دينار عراقي من محفظة السائق
+- يتم إرسال إشعار للراكب تلقائياً
+
+---
+
+## 5️⃣ حالات الرحلة والإشعارات (Ride Status & Notifications)
+
+### 📍 POST `/api/v1/driver/rides/:rideId/arrive`
+**الوصف:** السائق يؤكد وصوله لموقع الاستلام
+
+**Headers:**
+```
+Authorization: Bearer <driver_token>
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Arrival confirmed",
+  "data": {
+    "_id": "ride_id_123",
+    "status": "arrived",
+    "arrivedAt": "2025-12-02T20:50:00.000Z"
+  }
+}
+```
+
+**الإشعار المرسل للراكب:**
+- العنوان: "Driver Arrived" / "وصل السائق"
+- الرسالة: "Your driver has arrived at the pickup location" / "وصل السائق إلى موقع الاستلام"
+
+### 🚀 POST `/api/v1/driver/rides/:rideId/start`
+**الوصف:** السائق يبدأ الرحلة
+
+**Headers:**
+```
+Authorization: Bearer <driver_token>
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Ride started",
+  "data": {
+    "_id": "ride_id_123",
+    "status": "started",
+    "startedAt": "2025-12-02T20:52:00.000Z"
+  }
+}
+```
+
+**الإشعار المرسل للراكب:**
+- العنوان: "Ride Started" / "بدأت الرحلة"
+- الرسالة: "Your ride has started. Have a safe trip!" / "بدأت رحلتك. رحلة آمنة!"
+
+### 📍 POST `/api/v1/driver/location/update`
+**الوصف:** السائق يحدث موقعه الحالي (يتم إرساله تلقائياً كل 10-15 ثانية)
+
+**Headers:**
+```
+Authorization: Bearer <driver_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "latitude": 33.3160,
+  "longitude": 44.3670
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Location updated",
+  "data": {
+    "latitude": 33.3160,
+    "longitude": 44.3670
+  }
+}
+```
+
+**ملاحظة:** يتم إرسال الموقع للراكب عبر Socket.IO تلقائياً إذا كان هناك رحلة نشطة
+
+---
+
+## 6️⃣ الإشعارات (Notifications)
+
+### 🔔 GET `/api/v1/passenger/notifications?page=1&limit=20`
+**الوصف:** الحصول على جميع الإشعارات
+
+**Headers:**
+```
+Authorization: Bearer <passenger_token>
+```
+
+**Query Parameters:**
+- `page` (رقم، اختياري): رقم الصفحة (افتراضي: 1)
+- `limit` (رقم، اختياري): عدد الإشعارات في الصفحة (افتراضي: 20)
+
+**Response:**
+```json
+{
+  "status": "success",
+  "results": 5,
+  "total": 25,
+  "unreadCount": 3,
+  "currentPage": 1,
+  "totalPages": 2,
+  "data": [
+    {
+      "_id": "notification_id_1",
+      "title": "Driver Accepted Your Ride",
+      "titleAr": "قبل السائق رحلتك",
+      "message": "علي حسن is on the way to pick you up",
+      "messageAr": "علي حسن في الطريق لاستلامك",
+      "subtitle": "Ride #abc123",
+      "subtitleAr": "رحلة #abc123",
+      "type": "ride",
+      "isRead": false,
+      "data": {
+        "rideId": "ride_id_123",
+        "driverId": "driver_id"
+      },
+      "createdAt": "2025-12-02T20:45:00.000Z"
+    },
+    {
+      "_id": "notification_id_2",
+      "title": "Driver Arrived",
+      "titleAr": "وصل السائق",
+      "message": "Your driver has arrived at the pickup location",
+      "messageAr": "وصل السائق إلى موقع الاستلام",
+      "subtitle": "Ride #abc123",
+      "subtitleAr": "رحلة #abc123",
+      "type": "ride",
+      "isRead": false,
+      "data": {
+        "rideId": "ride_id_123"
+      },
+      "createdAt": "2025-12-02T20:50:00.000Z"
+    }
+  ]
+}
+```
+
+### ✅ PUT `/api/v1/passenger/notifications/mark-read`
+**الوصف:** تحديد الإشعارات كمقروءة (واحد، متعدد، أو الكل)
+
+**Headers:**
+```
+Authorization: Bearer <passenger_token>
+Content-Type: application/json
+```
+
+**Request Body (إشعار واحد):**
+```json
+{
+  "notificationIds": "notification_id_1"
+}
+```
+
+**Request Body (عدة إشعارات):**
+```json
+{
+  "notificationIds": ["notification_id_1", "notification_id_2", "notification_id_3"]
+}
+```
+
+**Request Body (جميع الإشعارات):**
+```json
+{
+  "markAll": true
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "3 notification(s) marked as read",
+  "modifiedCount": 3
+}
+```
+
+### ✅ PUT `/api/v1/passenger/notifications/read-all`
+**الوصف:** تحديد جميع الإشعارات كمقروءة (نقطة نهاية قديمة)
+
+**Headers:**
+```
+Authorization: Bearer <passenger_token>
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "All notifications marked as read"
+}
+```
+
+### 🗑️ DELETE `/api/v1/passenger/notifications/:id`
+**الوصف:** حذف إشعار معين
+
+**Headers:**
+```
+Authorization: Bearer <passenger_token>
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Notification deleted"
+}
+```
+
+---
+
+## 7️⃣ إدارة أنواع المركبات (Admin - Vehicle Types)
+
+### ➕ POST `/api/v1/admin/vehicle-types`
+**الوصف:** إضافة نوع مركبة جديد مع صورة
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+Content-Type: multipart/form-data
+```
+
+**Request Body (Form Data):**
+```
+name: economy
+nameAr: اقتصادي
+description: Standard comfortable ride
+descriptionAr: رحلة مريحة قياسية
+baseMultiplier: 1.0
+passengerCapacity[min]: 1
+passengerCapacity[max]: 4
+image: [FILE] (صورة نوع المركبة)
+isActive: true
+features: [{"feature":"Air Conditioning","featureAr":"تكييف هواء"}]
+```
+
+**شرح الحقول:**
+- `name`: اسم النوع بالإنجليزية (economy, comfort, premium)
+- `nameAr`: اسم النوع بالعربية
+- `baseMultiplier`: معامل السعر (1.0 للاقتصادي، 1.3 للمريح، 1.6 للفاخر)
+- `passengerCapacity`: عدد الركاب (من - إلى)
+- `image`: صورة نوع المركبة (ملف صورة - jpg, png)
+- `features`: مميزات المركبة (اختياري، JSON array)
+
+**ملاحظة:** استخدم `multipart/form-data` في Postman وأضف الصورة في حقل `image`
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Vehicle type created successfully",
+  "data": {
+    "_id": "vehicle_type_id",
+    "name": "economy",
+    "nameAr": "اقتصادي",
+    "image": "http://example.com/uploads/vehicle-types/economy-1234567890.jpg",
+    "baseMultiplier": 1.0,
+    "isActive": true,
+    "createdAt": "2025-12-02T20:00:00.000Z"
+  }
+}
+```
+
+### 📋 GET `/api/v1/admin/vehicle-types`
+**الوصف:** الحصول على جميع أنواع المركبات (للإدارة)
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Response:** قائمة بجميع أنواع المركبات مع الصور
+
+### ✏️ PUT `/api/v1/admin/vehicle-types/:id`
+**الوصف:** تحديث نوع مركبة (مع إمكانية تحديث الصورة)
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+Content-Type: multipart/form-data
+```
+
+**Request Body:** نفس حقول الإنشاء (جميع الحقول اختيارية، فقط أرسل ما تريد تحديثه)
+
+### 🗑️ DELETE `/api/v1/admin/vehicle-types/:id`
+**الوصف:** حذف نوع مركبة
+
+### 🔄 PUT `/api/v1/admin/vehicle-types/:id/toggle-status`
+**الوصف:** تفعيل/تعطيل نوع مركبة
+
+---
+
+## 8️⃣ إدارة أسباب الإلغاء (Admin - Cancellation Reasons)
+
+### ➕ POST `/api/v1/admin/cancellation-reasons`
+**الوصف:** إضافة سبب إلغاء جديد
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "reason": "Driver is late",
+  "reasonAr": "السائق متأخر",
+  "userType": "passenger",
+  "order": 1,
+  "isActive": true
+}
+```
+
+**شرح الحقول:**
+- `reason`: السبب بالإنجليزية
+- `reasonAr`: السبب بالعربية
+- `userType`: نوع المستخدم (passenger أو driver)
+- `order`: ترتيب العرض
+- `isActive`: نشط أم لا
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Cancellation reason created successfully",
+  "data": {
+    "_id": "reason_id",
+    "reason": "Driver is late",
+    "reasonAr": "السائق متأخر",
+    "userType": "passenger",
+    "order": 1,
+    "isActive": true
+  }
+}
+```
+
+### 📋 GET `/api/v1/admin/cancellation-reasons?userType=passenger`
+**الوصف:** الحصول على جميع أسباب الإلغاء
+
+**Query Parameters:**
+- `userType` (نص، اختياري): تصفية حسب نوع المستخدم
+
+### ✏️ PUT `/api/v1/admin/cancellation-reasons/:id`
+**الوصف:** تحديث سبب إلغاء
+
+### 🗑️ DELETE `/api/v1/admin/cancellation-reasons/:id`
+**الوصف:** حذف سبب إلغاء
+
+### 🔄 PUT `/api/v1/admin/cancellation-reasons/reorder`
+**الوصف:** إعادة ترتيب أسباب الإلغاء
+
+**Request Body:**
+```json
+{
+  "reasons": [
+    { "id": "reason_id_1", "order": 1 },
+    { "id": "reason_id_2", "order": 2 },
+    { "id": "reason_id_3", "order": 3 }
+  ]
+}
+```
+
+---
+
+## 📝 ملاحظات مهمة
+
+### 1. متطلبات ملف السائق
+- السائق **لا يستطيع** قبول الرحلات إلا بعد إكمال ملفه الشخصي:
+  - الاسم الكامل (`fullName`)
+  - البريد الإلكتروني (`email`)
+  - الصورة الشخصية (`profileImg`)
+- إذا حاول قبول رحلة بدون إكمال الملف، سيحصل على خطأ 403:
+```json
+{
+  "status": "error",
+  "message": "Please complete your profile (name, email, photo) before accepting rides"
+}
+```
+
+### 2. نظام العقوبات للسائقين
+- السائق يمكنه إلغاء رحلتين في اليوم بدون عقوبة
+- عند الإلغاء الثالث في نفس اليوم، يتم خصم **1000 دينار عراقي** من محفظته
+- يتم احتساب الإلغاءات من منتصف الليل إلى منتصف الليل
+
+### 3. الدعم ثنائي اللغة
+- جميع الردود تحتوي على النسخة العربية والإنجليزية
+- الإشعارات تُرسل بكلا اللغتين
+- أسباب الإلغاء متوفرة بكلا اللغتين
+
+### 4. تتبع الموقع الفوري
+- السائق يرسل موقعه كل 10-15 ثانية عبر `/api/v1/driver/location/update`
+- الراكب يستقبل تحديثات الموقع عبر Socket.IO
+- التحديثات تتوقف تلقائياً عند اكتمال أو إلغاء الرحلة
+
+### 5. أحداث Socket.IO
+الأحداث المرسلة للراكب:
+- `ride:accepted` - عند قبول السائق للرحلة
+- `ride:arrived` - عند وصول السائق
+- `ride:started` - عند بدء الرحلة
+- `ride:completed` - عند اكتمال الرحلة
+- `ride:cancelled` - عند إلغاء الرحلة
+- `driver:location-update` - تحديث موقع السائق
+- `notification:new` - إشعار جديد
+
+### 6. التوافق مع الإصدارات السابقة
+- جميع التحديثات متوافقة مع الكود الموجود
+- الحقول القديمة مثل `cancellationReason` (نص حر) لا تزال موجودة
+- نقاط النهاية القديمة مثل `/notifications/read-all` لا تزال تعمل
+
+---
+
+## 🎯 سيناريو اختبار كامل
+
+### 1. الراكب يطلب رحلة
+```
+1. POST /api/v1/passenger/location/check
+   - التحقق من توفر التطبيق
+
+2. GET /api/v1/passenger/vehicle-types?distance=10&duration=20
+   - اختيار نوع المركبة
+
+3. POST /api/v1/passenger/rides/request
+   - طلب الرحلة
+```
+
+### 2. السائق يقبل ويبدأ الرحلة
+```
+1. POST /api/v1/driver/rides/:rideId/accept
+   - قبول الرحلة (يرسل إشعار للراكب)
+
+2. POST /api/v1/driver/location/update
+   - تحديث الموقع أثناء الطريق
+
+3. POST /api/v1/driver/rides/:rideId/arrive
+   - تأكيد الوصول (يرسل إشعار للراكب)
+
+4. POST /api/v1/driver/rides/:rideId/start
+   - بدء الرحلة (يرسل إشعار للراكب)
+
+5. POST /api/v1/driver/rides/:rideId/complete
+   - إكمال الرحلة (يرسل إشعار للراكب)
+```
+
+### 3. الراكب يتحقق من الإشعارات
+```
+1. GET /api/v1/passenger/notifications
+   - عرض جميع الإشعارات
+
+2. PUT /api/v1/passenger/notifications/mark-read
+   - تحديد الإشعارات كمقروءة
+```
+
+### 4. إلغاء الرحلة (اختياري)
+```
+1. GET /api/v1/passenger/cancellation-reasons
+   - الحصول على أسباب الإلغاء
+
+2. POST /api/v1/passenger/rides/:rideId/cancel
+   - إلغاء الرحلة مع السبب
+```
+
+---
+
+## ✅ الملفات المُنشأة والمُحدّثة
+
+### Models (النماذج)
+- ✅ [vehicleTypeModel.js](file:///e:/Taxi/models/vehicleTypeModel.js) - جديد
+- ✅ [cancellationReasonModel.js](file:///e:/Taxi/models/cancellationReasonModel.js) - جديد
+- ✅ [notificationModel.js](file:///e:/Taxi/models/notificationModel.js) - محدّث (دعم ثنائي اللغة)
+- ✅ [rideModel.js](file:///e:/Taxi/models/rideModel.js) - محدّث (معرف سبب الإلغاء)
+- ✅ [driverProfileModel.js](file:///e:/Taxi/models/driverProfileModel.js) - محدّث (تتبع اكتمال الملف)
+
+### Controllers (المتحكمات)
+- ✅ [vehicleTypeController.js](file:///e:/Taxi/controllers/vehicleTypeController.js) - جديد
+- ✅ [cancellationReasonController.js](file:///e:/Taxi/controllers/cancellationReasonController.js) - جديد
+- ✅ [locationController.js](file:///e:/Taxi/controllers/locationController.js) - جديد
+- ✅ [rideStatusController.js](file:///e:/Taxi/controllers/rideStatusController.js) - جديد
+- ✅ [passengerRideController.js](file:///e:/Taxi/controllers/passengerRideController.js) - محدّث
+- ✅ [rideController.js](file:///e:/Taxi/controllers/rideController.js) - محدّث
+- ✅ [notificationController.js](file:///e:/Taxi/controllers/notificationController.js) - محدّث
+
+### Routes (المسارات)
+- ✅ [passengerRoutes.js](file:///e:/Taxi/routes/passengerRoutes.js) - محدّث
+- ✅ [driverProfile.js](file:///e:/Taxi/routes/driverProfile.js) - محدّث
+- ✅ [adminRoutes.js](file:///e:/Taxi/routes/adminRoutes.js) - محدّث
+
+---
+
+## 🎉 انتهى!
+جميع الميزات السبعة تم تنفيذها بنجاح مع دعم كامل للغتين العربية والإنجليزية! 🚀

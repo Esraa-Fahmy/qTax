@@ -34,7 +34,11 @@ const rideSchema = new mongoose.Schema(
       type: String,
       enum: ["passenger", "driver"],
     },
-    cancellationReason: String,
+    cancellationReason: String, // Backward compatibility - free text
+    cancellationReasonId: {
+      type: mongoose.Schema.ObjectId,
+      ref: "CancellationReason",
+    },
     driverRating: {
       type: Number,
       min: 1,
@@ -105,6 +109,40 @@ const rideSchema = new mongoose.Schema(
     returnRideId: {
       type: mongoose.Schema.ObjectId,
       ref: "Ride",
+    },
+    
+    // Meter Mode (Rides without fixed destination)
+    isMeterMode: {
+      type: Boolean,
+      default: false,
+    },
+    meterDistance: {
+      type: Number,
+      default: 0, // Actual distance traveled in meter mode
+    },
+    meterStartTime: Date,
+    meterEndTime: Date,
+    
+    // Rest Stop & Safety Check
+    hasRestStop: {
+      type: Boolean,
+      default: false,
+    },
+    restStopLocation: {
+      address: String,
+      coordinates: {
+        latitude: Number,
+        longitude: Number,
+      },
+    },
+    safetyCheckStatus: {
+      lastCheckTime: Date,
+      responded: Boolean,
+      responseTime: Date,
+      emergencyTriggered: {
+        type: Boolean,
+        default: false,
+      },
     },
     
     // Rating Tags

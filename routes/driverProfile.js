@@ -12,14 +12,21 @@ const {
 const {
   getIncomingRides,
   acceptRide,
-  startRide,
-  arriveAtDestination,
   completeRide,
   cancelRide,
   getActiveRide,
   getRideHistory,
   ratePassenger,
+  updateMeterDistance,
+  getUpcomingNearbyRides,
+  respondToSafetyCheck,
 } = require("../controllers/rideController");
+
+const {
+  arriveAtPickup,
+  startRide,
+  updateDriverLocation,
+} = require("../controllers/rideStatusController");
 
 const {
   toggleOnlineStatus,
@@ -32,6 +39,8 @@ const {
 
 const { getWallet, getTransactions, topUpWallet } = require("../controllers/walletController");
 const { createComplaint, getMyComplaints } = require("../controllers/complaintController");
+const { getMyRewards } = require("../controllers/rewardController");
+const { requestProfileChange } = require("../controllers/profileChangeRequestController");
 
 const { protect, allowedTo } = require("../midlewares/roleMiddleware");
 const { uploadSingleImage, uploadMixOfImages } = require("../midlewares/uploadImageMiddleWare");
@@ -107,12 +116,29 @@ router.get("/dashboard", requireActive, getDashboard);
 router.get("/rides/incoming", requireActive, getIncomingRides);
 router.get("/rides/active", requireActive, getActiveRide);
 router.get("/rides/history", requireActive, getRideHistory);
+router.get("/rides/upcoming-nearby", requireActive, getUpcomingNearbyRides);
 router.post("/rides/:rideId/accept", requireActive, acceptRide);
-router.post("/rides/:rideId/start", requireActive, startRide);
-router.post("/rides/:rideId/arrive", requireActive, arriveAtDestination);
+router.post("/rides/:rideId/arrive", requireActive, arriveAtPickup); // Updated
+router.post("/rides/:rideId/start", requireActive, startRide); // Updated
 router.post("/rides/:rideId/complete", requireActive, completeRide);
 router.post("/rides/:rideId/cancel", requireActive, cancelRide);
 router.post("/rides/:rideId/rate", requireActive, ratePassenger);
+router.put("/rides/:rideId/update-meter", requireActive, updateMeterDistance);
+router.post("/rides/:rideId/safety-check", requireActive, respondToSafetyCheck);
+
+// Location tracking
+router.post("/location/update", requireActive, updateDriverLocation);
+
+// Cancellation Reasons
+const { getCancellationReasons } = require("../controllers/cancellationReasonController");
+router.get("/cancellation-reasons", requireActive, getCancellationReasons);
+
+// Notifications
+const { getNotifications, markAsRead, markAllAsRead, deleteNotification } = require("../controllers/notificationController");
+router.get("/notifications", requireActive, getNotifications);
+router.put("/notifications/mark-read", requireActive, markAsRead);
+router.put("/notifications/read-all", requireActive, markAllAsRead);
+router.delete("/notifications/:id", requireActive, deleteNotification);
 
 // ============================================
 // Wallet Routes (require active status)
@@ -121,6 +147,13 @@ router.post("/rides/:rideId/rate", requireActive, ratePassenger);
 router.get("/wallet", requireActive, getWallet);
 router.get("/wallet/transactions", requireActive, getTransactions);
 router.post("/wallet/topup", requireActive, topUpWallet);
+
+// ============================================
+// Rewards & Profile Requests (require active status)
+// ============================================
+
+router.get("/rewards", requireActive, getMyRewards); // New
+router.post("/profile/request-change", requireActive, requestProfileChange); // New
 
 // ============================================
 // Complaints Routes (require active status)
