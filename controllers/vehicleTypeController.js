@@ -11,10 +11,7 @@ const ApiError = require("../utils/apiError");
 // @route   POST /api/v1/admin/vehicle-types
 // @access  Private (Admin only)
 exports.createVehicleType = asyncHandler(async (req, res, next) => {
-  // Handle image upload
-  if (req.file) {
-    req.body.image = req.file.filename;
-  }
+  // Image is already processed by middleware and saved in req.body.image
 
   // Parse features if sent as JSON string (from form-data)
   if (req.body.features && typeof req.body.features === 'string') {
@@ -61,10 +58,7 @@ exports.getAllVehicleTypesAdmin = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/v1/admin/vehicle-types/:id
 // @access  Private (Admin only)
 exports.updateVehicleType = asyncHandler(async (req, res, next) => {
-  // Handle image upload
-  if (req.file) {
-    req.body.image = req.file.filename;
-  }
+  // Image is already processed by middleware and saved in req.body.image
 
   // Parse features if sent as JSON string (from form-data)
   if (req.body.features && typeof req.body.features === 'string') {

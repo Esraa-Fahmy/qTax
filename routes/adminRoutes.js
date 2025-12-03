@@ -175,10 +175,19 @@ const {
 } = require("../controllers/vehicleTypeController");
 
 const { uploadSingleImage } = require("../midlewares/uploadImageMiddleWare");
+const { resizeVehicleTypeImage } = require("../midlewares/vehicleTypeImageMiddleware");
 
-router.post("/vehicle-types", uploadSingleImage("image"), createVehicleType);
+router.post("/vehicle-types", 
+  uploadSingleImage("image"), 
+  resizeVehicleTypeImage,
+  createVehicleType
+);
 router.get("/vehicle-types", getAllVehicleTypesAdmin);
-router.put("/vehicle-types/:id", uploadSingleImage("image"), updateVehicleType);
+router.put("/vehicle-types/:id", 
+  uploadSingleImage("image"),
+  resizeVehicleTypeImage,
+  updateVehicleType
+);
 router.delete("/vehicle-types/:id", deleteVehicleType);
 router.put("/vehicle-types/:id/toggle-status", toggleVehicleTypeStatus);
 
