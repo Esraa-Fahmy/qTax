@@ -16,6 +16,25 @@ exports.createVehicleType = asyncHandler(async (req, res, next) => {
     req.body.image = req.file.filename;
   }
 
+  // Parse features if sent as JSON string (from form-data)
+  if (req.body.features && typeof req.body.features === 'string') {
+    try {
+      req.body.features = JSON.parse(req.body.features);
+    } catch (err) {
+      return next(new ApiError("Invalid features format. Must be valid JSON array", 400));
+    }
+  }
+
+  // Parse passengerCapacity if sent as separate fields
+  if (req.body['passengerCapacity[min]'] || req.body['passengerCapacity[max]']) {
+    req.body.passengerCapacity = {
+      min: parseInt(req.body['passengerCapacity[min]']) || 1,
+      max: parseInt(req.body['passengerCapacity[max]']) || 4
+    };
+    delete req.body['passengerCapacity[min]'];
+    delete req.body['passengerCapacity[max]'];
+  }
+
   const vehicleType = await VehicleType.create(req.body);
 
   res.status(201).json({
@@ -45,6 +64,25 @@ exports.updateVehicleType = asyncHandler(async (req, res, next) => {
   // Handle image upload
   if (req.file) {
     req.body.image = req.file.filename;
+  }
+
+  // Parse features if sent as JSON string (from form-data)
+  if (req.body.features && typeof req.body.features === 'string') {
+    try {
+      req.body.features = JSON.parse(req.body.features);
+    } catch (err) {
+      return next(new ApiError("Invalid features format. Must be valid JSON array", 400));
+    }
+  }
+
+  // Parse passengerCapacity if sent as separate fields
+  if (req.body['passengerCapacity[min]'] || req.body['passengerCapacity[max]']) {
+    req.body.passengerCapacity = {
+      min: parseInt(req.body['passengerCapacity[min]']) || 1,
+      max: parseInt(req.body['passengerCapacity[max]']) || 4
+    };
+    delete req.body['passengerCapacity[min]'];
+    delete req.body['passengerCapacity[max]'];
   }
 
   const vehicleType = await VehicleType.findByIdAndUpdate(
