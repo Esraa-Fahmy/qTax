@@ -579,4 +579,121 @@ exports.updateComplaintStatus = asyncHandler(async (req, res, next) => {
   });
 });
 
+// ============================================
+// Additional Missing Endpoints
+// ============================================
+
+// @desc    Get all drivers (not just pending)
+// @route   GET /api/v1/admin/drivers
+// @access  Private (Admin only)
+exports.getAllDrivers = asyncHandler(async (req, res) => {
+  const { status, page = 1, limit = 20 } = req.query;
+  const skip = (page - 1) * limit;
+
+  const filter = { role: "driver" };
+  if (status) filter.status = status;
+
+  const [drivers, total] = await Promise.all([
+    User.find(filter)
+      .select("-password")
+      .populate("driverProfile")
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 }),
+    User.countDocuments(filter),
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    results: drivers.length,
+    total,
+    currentPage: parseInt(page),
+    totalPages: Math.ceil(total / limit),
+    data: drivers,
+  });
+});
+
+// @desc    Get driver by ID with full details
+// @route   GET /api/v1/admin/drivers/:id
+// @access  Private (Admin only)
+exports.getDriverById = asyncHandler(async (req, res, next) => {
+  const driver = await User.findById(req.params.id)
+    .select("-password")
+    .populate("driverProfile");
+
+  if (!driver || driver.role !== "driver") {
+    return next(new ApiError("Driver not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: driver,
+  });
+});
+
+// @desc    Toggle driver status (active/inactive)
+// @route   PUT /api/v1/admin/drivers/:id/toggle-status
+// @access  Private (Admin only)
+exports.toggleDriverStatus = asyncHandler(async (req, res, next) => {
+  const driver = await User.findById(req.params.id);
+
+  if (!driver || driver.role !== "driver") {
+    return next(new ApiError("Driver not found", 404));
+  }
+
+  // Toggle between active and inactive
+  driver.status = driver.status === "active" ? "inactive" : "active";
+  await driver.save();
+
+  res.status(200).json({
+    status: "success",
+    message: `Driver ${driver.status === "active" ? "activated" : "deactivated"} successfully`,
+    data: { status: driver.status },
+  });
+});
+
+// @desc    Delete ride by admin
+// @route   DELETE /api/v1/admin/rides/:id
+// @access  Private (Admin only)
+exports.deleteRide = asyncHandler(async (req, res, next) => {
+  const ride = await Ride.findByIdAndDelete(req.params.id);
+
+  if (!ride) {
+    return next(new ApiError("Ride not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "Ride deleted successfully",
+  });
+});
+
+// @desc    Get all rewards history
+// @route   GET /api/v1/admin/rewards
+// @access  Private (Admin only)
+exports.getAllRewards = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20 } = req.query;
+  const skip = (page - 1) * limit;
+
+  const Reward = require("../models/rewardModel");
+
+  const [rewards, total] = await Promise.all([
+    Reward.find()
+      .populate("driver", "fullName phone rating")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit)),
+    Reward.countDocuments(),
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    results: rewards.length,
+    total,
+    currentPage: parseInt(page),
+    totalPages: Math.ceil(total / limit),
+    data: rewards,
+  });
+});
+
 module.exports = exports;

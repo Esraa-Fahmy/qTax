@@ -105,4 +105,9 @@ router.get("/saved-rides/:id", getSavedRide);
 router.put("/saved-rides/:id", updateSavedRide);
 router.delete("/saved-rides/:id", deleteSavedRide);
 
+// Profile routes (shared from userRoutes)
+const { getMyProfile, updateMyProfile, uploadUserImage, resizeImage } = require("../controllers/userController");
+router.get("/profile", getMyProfile);
+router.put("/profile", uploadUserImage, resizeImage, updateMyProfile);
+
 module.exports = router;

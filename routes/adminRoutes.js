@@ -32,6 +32,17 @@ router.use(protect, allowedTo("admin"));
 // ============================================
 // Driver Management
 // ============================================
+const {
+  getAllDrivers,
+  getDriverById,
+  toggleDriverStatus,
+} = require("../controllers/adminController");
+
+router.get("/drivers", getAllDrivers); // Get all drivers with filters
+router.get("/drivers/:id", getDriverById); // Get specific driver details
+router.put("/drivers/:id/toggle-status", toggleDriverStatus); // Toggle driver status
+
+// Legacy endpoints (kept for backward compatibility)
 router.get("/pending-drivers", getPendingDrivers);
 router.put("/approve/:id", approveDriver);
 router.put("/reject/:id", rejectDriver);
@@ -53,9 +64,12 @@ router.put("/approve-admin/:id", updateAdminStatus);
 // ============================================
 // Ride Management
 // ============================================
+const { deleteRide } = require("../controllers/adminController");
+
 router.get("/rides", getAllRides);
 router.get("/rides/stats", getRideStats);
 router.get("/rides/:id", getRideById);
+router.delete("/rides/:id", deleteRide); // New: Delete ride
 
 // ============================================
 // Voucher Management
@@ -154,6 +168,9 @@ router.get("/stats/charts/revenue", getRevenueChartData);
 // ============================================
 // Rewards Management
 // ============================================
+const { getAllRewards } = require("../controllers/adminController");
+
+router.get("/rewards", getAllRewards); // New: Get all rewards history
 router.post("/rewards/distribute", distributeRewards);
 
 // ============================================

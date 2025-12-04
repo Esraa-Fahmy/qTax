@@ -162,4 +162,12 @@ router.post("/profile/request-change", requireActive, requestProfileChange); // 
 router.post("/complaints", requireActive, createComplaint);
 router.get("/complaints/my", requireActive, getMyComplaints);
 
+// ============================================
+// Profile Routes (shared from userRoutes)
+// ============================================
+
+const { getMyProfile, updateMyProfile, uploadUserImage, resizeImage } = require("../controllers/userController");
+router.get("/profile", getMyProfile);
+router.put("/profile", uploadUserImage, resizeImage, updateMyProfile);
+
 module.exports = router;
